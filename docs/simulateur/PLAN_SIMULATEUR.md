@@ -160,6 +160,24 @@ class EncounterLog:            # une ligne par obstacle rencontré, écrite en C
     infer_ms: float
 ```
 
+**Point d'entrée de l'équipe B** (accord du 19 octobre) : `simulator/perception/__init__.py` expose deux fonctions,
+utilisées par `engine.py` et `main.py` de l'équipe A :
+
+```python
+def make_classifier(name: str, config: SimConfig) -> Classifier:
+    """name : "simulation", "reference" ou "ours". Erreur claire si le modèle demandé n'est pas disponible."""
+
+def make_image_provider(config: SimConfig) -> Callable[[Obstacle], np.ndarray]:
+    """Renvoie une fonction qui donne l'image RGB uint8 (H, W, 3) d'un obstacle : une image de
+    data/crops/test/<vraie classe>/ si elle existe, sinon une image de remplacement. Même obstacle = même image."""
+```
+
+**Ce que l'équipe A fournit à l'équipe B** (`simulator/engine.py`) : `Episode(graph, classifier, config, episode,
+image_for=...)` puis `.run()` renvoie un `EpisodeResult` (statut, distance, recalculs, **collisions**, attente,
+liste des `EncounterLog`). `save_encounters_csv(results, path)` écrit le CSV lu par `metrics.py`. Les obstacles
+se comportent selon leur **vraie** classe (`SimConfig.clear_steps`) : une personne finit de traverser, un véhicule
+reste arrêté. Une mauvaise classification peut donc provoquer une collision, ce qui rend la comparaison parlante.
+
 **Qui fait quoi avec ces contrats :**
 
 - L'équipe A appelle `Classifier.predict()` quand la voiture arrive près d'un `Obstacle`, applique l'`Action` correspondante et écrit une `EncounterLog`.
@@ -328,6 +346,7 @@ Données cartographiques : © contributeurs OpenStreetMap, licence ODbL. La ment
 
 | Date | Équipe | Note |
 | --- | --- | --- |
+| 19 oct. 2026 | A | Carte, Dijkstra, obstacles, voiture, décisions et `engine.py` terminés (52 tests). Sur 100 épisodes : classifieur parfait 96 arrivés, 4 bloqués, 0 collision ; classifieur « toujours vélo » 131 collisions. **B : fournir `make_classifier` et `make_image_provider` (section 3)** |
 | 19 oct. 2026 | A | **Changement : grille remplacée par la carte OSM de Casablanca.** `Obstacle.cell` devient `Obstacle.edge` (+ `offset_m`). Aucun impact sur les tâches de B, à confirmer à la relecture |
 | 19 oct. 2026 | A | `contracts.py`, `config.py` et leurs tests sur `sim/monde` : **à relire par B** avant fusion dans `main` |
 | 19 oct. 2026 | — | Plan créé |
