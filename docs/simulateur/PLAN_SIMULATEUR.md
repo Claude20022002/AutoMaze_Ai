@@ -172,6 +172,18 @@ def make_image_provider(config: SimConfig) -> Callable[[Obstacle], np.ndarray]:
     data/crops/test/<vraie classe>/ si elle existe, sinon une image de remplacement. Même obstacle = même image."""
 ```
 
+**Vue caméra** (`simulator/ui/camera_panel.py`, équipe B) : `main.py` l'utilise dès qu'elle existe, sinon il affiche
+une vue provisoire. Interface attendue :
+
+```python
+class CameraPanel:
+    def __init__(self, rect: pygame.Rect) -> None: ...          # zone de 408 × 230 px à droite de la fenêtre
+    def draw(self, surface: pygame.Surface, detection: Detection | None) -> None: ...
+    # Detection (simulator/engine.py) : obstacle, image_rgb, prediction (avec probs), action
+```
+
+Couleurs et polices communes : `simulator/ui/theme.py` (`CLASS_COLORS`, `font`, `draw_text`).
+
 **Ce que l'équipe A fournit à l'équipe B** (`simulator/engine.py`) : `Episode(graph, classifier, config, episode,
 image_for=...)` puis `.run()` renvoie un `EpisodeResult` (statut, distance, recalculs, **collisions**, attente,
 liste des `EncounterLog`). `save_encounters_csv(results, path)` écrit le CSV lu par `metrics.py`. Les obstacles
@@ -207,7 +219,7 @@ L'équipe A peut tout tester avec le mode `simulation`, ou avec un faux classifi
 | Règles de décision | `world/decisions.py`, `config.py` | Chaque `Action` pénalise ou bloque des tronçons, puis relance Dijkstra depuis la position actuelle |
 | Boucle de simulation | `engine.py` | Un épisode tourne aussi sans affichage (`--headless`) et écrit les `EncounterLog` |
 | Affichage | `ui/map_view.py`, `ui/hud.py` | Rues, itinéraire prévu, nom de la rue, voiture, obstacles, nom du classifieur et compteurs à l'écran |
-| Lancement | `main.py` | `python -m simulator.main --classifier simulation --seed 7` ouvre la fenêtre |
+| Lancement | `main.py` | `python -m simulator.main --classifier simulation --seed 7` ouvre la fenêtre ; `--screenshot capture.png` produit une image sans fenêtre |
 
 > **Piège.** Une carte découpée dans une ville contient des impasses et des sens uniques qui sortent de la zone :
 > certains itinéraires deviennent impossibles. `road_map.py` ne garde que la plus grande composante fortement
@@ -346,6 +358,7 @@ Données cartographiques : © contributeurs OpenStreetMap, licence ODbL. La ment
 
 | Date | Équipe | Note |
 | --- | --- | --- |
+| 19 oct. 2026 | A | Interface pygame (`ui/map_view.py`, `ui/hud.py`, `ui/theme.py`) et `main.py` terminés. `python -m simulator.main` fonctionne avec un classifieur de démonstration tant que `simulator.perception` n'existe pas. **B : interface `CameraPanel` décrite section 3** |
 | 19 oct. 2026 | A | Carte, Dijkstra, obstacles, voiture, décisions et `engine.py` terminés (52 tests). Sur 100 épisodes : classifieur parfait 96 arrivés, 4 bloqués, 0 collision ; classifieur « toujours vélo » 131 collisions. **B : fournir `make_classifier` et `make_image_provider` (section 3)** |
 | 19 oct. 2026 | A | **Changement : grille remplacée par la carte OSM de Casablanca.** `Obstacle.cell` devient `Obstacle.edge` (+ `offset_m`). Aucun impact sur les tâches de B, à confirmer à la relecture |
 | 19 oct. 2026 | A | `contracts.py`, `config.py` et leurs tests sur `sim/monde` : **à relire par B** avant fusion dans `main` |

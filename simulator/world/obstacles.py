@@ -19,6 +19,7 @@ class ObstacleState:
     detected_step: int | None = None   # pas où la voiture l'a vu et fait classer
     cleared_step: int | None = None    # pas où il libère la voie (None = immobile ou pas encore vu)
     handled: bool = False              # une décision a été prise : on ne le reclasse pas
+    predicted_label: str | None = None # classe donnée par le classifieur (affichée sur la carte)
 
     def present(self, step: int) -> bool:
         """L'obstacle bloque-t-il encore physiquement la voie ?"""

@@ -24,7 +24,7 @@ import networkx as nx
 import numpy as np
 
 from simulator.config import REPORTS_DIR, SimConfig
-from simulator.contracts import Classifier, EncounterLog, Obstacle
+from simulator.contracts import Action, Classifier, EncounterLog, Obstacle, Prediction
 from simulator.world.car import Car
 from simulator.world.decisions import apply_action
 from simulator.world.obstacles import ObstacleState, place_obstacles
@@ -38,6 +38,16 @@ ARRIVED, BLOCKED, TIMEOUT = "arrivé", "bloqué", "temps dépassé"
 def gray_placeholder(obstacle: Obstacle) -> np.ndarray:
     """Image neutre utilisée tant qu'aucune banque d'obstacles n'est branchée (tests de l'équipe A)."""
     return np.full((64, 64, 3), 128, dtype=np.uint8)
+
+
+@dataclass(frozen=True)
+class Detection:
+    """Dernier obstacle classé : ce que la vue caméra affiche."""
+
+    obstacle: Obstacle
+    image_rgb: np.ndarray
+    prediction: Prediction
+    action: Action
 
 
 @dataclass
@@ -85,6 +95,7 @@ class Episode:
         self.no_path_since: int | None = None
         self.slow_edges: set = set()
         self.collided: set[int] = set()
+        self.last_detection: Detection | None = None
         self.result = EpisodeResult(episode, classifier.name, None, 0, 0.0, self.planned.length_m, 0, 0, 0)
 
     # ------------------------------------------------------------------ boucle
@@ -129,9 +140,11 @@ class Episode:
             if state.handled or distance > self.config.sensor_range_m:
                 continue
             obstacle = state.obstacle
-            prediction = self.classifier.predict(self.image_for(obstacle), true_label=obstacle.true_label)
+            image = self.image_for(obstacle)
+            prediction = self.classifier.predict(image, true_label=obstacle.true_label)
             action = self.config.decision_rules[prediction.label]
-            state.handled, state.detected_step = True, self.step_count
+            self.last_detection = Detection(obstacle, image, prediction, action)  # pour la vue caméra
+            state.handled, state.detected_step, state.predicted_label = True, self.step_count, prediction.label
             clear = self.config.clear_steps[obstacle.true_label]
             if clear is not None:
                 state.cleared_step = self.step_count + clear
