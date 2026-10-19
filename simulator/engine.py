@@ -96,12 +96,21 @@ class Episode:
         self.slow_edges: set = set()
         self.collided: set[int] = set()
         self.last_detection: Detection | None = None
+        self.last_collision_step: int | None = None
         self.result = EpisodeResult(episode, classifier.name, None, 0, 0.0, self.planned.length_m, 0, 0, 0)
 
     # ------------------------------------------------------------------ boucle
     @property
     def done(self) -> bool:
         return self.result.status is not None
+
+    @property
+    def speed_mps(self) -> float:
+        """Vitesse actuelle de la voiture (0 à l'arrêt, réduite sur un tronçon où elle ralentit)."""
+        if self.done or self.wait > 0 or self.pending_replan:
+            return 0.0
+        speed = self.config.car_speed_mps
+        return speed / self.config.slow_factor if self.car.current_edge in self.slow_edges else speed
 
     def run(self) -> EpisodeResult:
         while not self.done:
@@ -144,7 +153,8 @@ class Episode:
             prediction = self.classifier.predict(image, true_label=obstacle.true_label)
             action = self.config.decision_rules[prediction.label]
             self.last_detection = Detection(obstacle, image, prediction, action)  # pour la vue caméra
-            state.handled, state.detected_step, state.predicted_label = True, self.step_count, prediction.label
+            state.handled, state.detected_step = True, self.step_count
+            state.predicted_label, state.predicted_score = prediction.label, prediction.score
             clear = self.config.clear_steps[obstacle.true_label]
             if clear is not None:
                 state.cleared_step = self.step_count + clear
@@ -195,6 +205,7 @@ class Episode:
                 self.car.advance(max(ahead - 1.0, 0.0))  # la voiture s'arrête contre l'obstacle
                 self.collided.add(i)
                 self.result.collisions += 1
+                self.last_collision_step = self.step_count
                 if state.cleared_step is not None:   # obstacle mobile : on attend qu'il libère la voie
                     self.wait = max(self.wait, state.cleared_step - self.step_count)
                 else:                                 # obstacle immobile : on le contourne

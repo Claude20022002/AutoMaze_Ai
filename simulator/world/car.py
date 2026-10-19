@@ -85,6 +85,26 @@ class Car:
             self.progress_m = 0.0
         self.edge_index = 0
 
+    def heading(self, look_ahead_m: float = 6.0) -> tuple[float, float]:
+        """Direction de la voiture (vecteur unitaire en mètres), mesurée vers un point un peu plus loin sur l'itinéraire."""
+        here = self.position_xy()
+        if self.arrived:
+            edge = self.route.edges[-1] if self.route.edges else None
+            if edge is None:
+                return 0.0, 1.0
+            ahead = point_on_edge(self.graph, edge, self.edge_length(edge))
+            here = point_on_edge(self.graph, edge, max(self.edge_length(edge) - look_ahead_m, 0.0))
+        else:
+            index, offset = self.edge_index, self.progress_m + look_ahead_m
+            while index < len(self.route.edges) - 1 and offset > self.edge_length(self.route.edges[index]):
+                offset -= self.edge_length(self.route.edges[index])
+                index += 1
+            edge = self.route.edges[index]
+            ahead = point_on_edge(self.graph, edge, min(offset, self.edge_length(edge)))
+        dx, dy = ahead[0] - here[0], ahead[1] - here[1]
+        norm = (dx * dx + dy * dy) ** 0.5
+        return (dx / norm, dy / norm) if norm > 1e-6 else (0.0, 1.0)
+
     def position_xy(self) -> tuple[float, float]:
         """Coordonnées (mètres) de la voiture, en suivant la forme réelle de la rue si elle est connue."""
         if self.arrived:
