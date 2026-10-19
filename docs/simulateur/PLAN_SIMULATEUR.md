@@ -29,7 +29,8 @@ Ouvrez ensuite `AutoMaze_Ai-perception/` dans Cursor, et `AutoMaze_Ai/` dans VS 
 
 Deux équipes construisent le simulateur en parallèle. Une version de démonstration doit tourner pour la séance 2
 (25 novembre), et la version branchée sur notre CNN pour la soutenance (16 décembre). Le simulateur montre une voiture
-qui traverse un labyrinthe avec Dijkstra, classe chaque obstacle rencontré et adapte son trajet.
+qui roule dans les vraies rues d'une partie de Casablanca (du Maârif au centre-ville, carte OpenStreetMap),
+suit le plus court chemin calculé par Dijkstra, classe chaque obstacle rencontré et adapte son trajet.
 
 Les deux équipes ne dépendent l'une de l'autre que par `simulator/contracts.py`, figé le 21 octobre (section 3).
 
@@ -54,18 +55,18 @@ la position des obstacles ; le modèle ne fait que les classer.
 ```text
 simulator/
 ├── contracts.py          PARTAGÉ  Prediction, Classifier, Obstacle, Action, EncounterLog
-├── config.py             PARTAGÉ  tailles, graines, table classe -> Action, seuils
+├── config.py             PARTAGÉ  zone de la carte, lieux, graines, table classe -> Action, seuils
 │
 ├── world/                ÉQUIPE A
-│   ├── maze.py           grille, murs, départ, arrivée (avec boucles)
-│   ├── pathfinding.py    Dijkstra avec coûts par case
+│   ├── road_map.py       carte OSM de Casablanca (OSMnx), lieux de départ et d'arrivée
+│   ├── pathfinding.py    Dijkstra écrit à la main, coûts dynamiques par tronçon
 │   ├── obstacles.py      placement des obstacles sur le chemin
 │   ├── car.py            position, capteur (portée), déplacement
-│   └── decisions.py      Action -> coûts / cases bloquées -> recalcul
+│   └── decisions.py      Action -> pénalités / tronçons bloqués -> recalcul
 ├── engine.py             ÉQUIPE A  boucle d'un épisode, mode --headless, écriture des EncounterLog
 ├── main.py               ÉQUIPE A  point d'entrée : python -m simulator.main
 ├── ui/
-│   ├── grid_view.py      ÉQUIPE A  grille, chemin, voiture, obstacles (pygame)
+│   ├── map_view.py       ÉQUIPE A  rues, itinéraire, voiture, obstacles (pygame)
 │   ├── hud.py            ÉQUIPE A  nom du classifieur, compteurs
 │   └── camera_panel.py   ÉQUIPE B  image de l'obstacle, prédiction, vraie classe, probabilités
 │
@@ -133,9 +134,10 @@ class Classifier(ABC):
 
 @dataclass(frozen=True)
 class Obstacle:
-    cell: tuple[int, int]      # (ligne, colonne) dans la grille
-    true_label: str            # vraie classe, connue du simulateur
-    image_path: Path           # image du jeu de test (ou image de remplacement)
+    edge: tuple[int, int, int]  # tronçon de la carte OSM : (intersection de départ, d'arrivée, clé)
+    true_label: str             # vraie classe, connue du simulateur
+    image_path: Path | None     # image du jeu de test ; None = image de remplacement
+    offset_m: float = 0.0       # position sur le tronçon, pour l'affichage
 
 
 class Action(Enum):
@@ -168,12 +170,12 @@ Table proposée (à valider) :
 
 | Classe prédite | Action | Effet sur Dijkstra |
 | --- | --- | --- |
-| person | `STOP_WAIT` | Case bloquée pendant quelques pas |
-| bicycle | `SLOW_DOWN` | Coût de la case augmenté |
-| motorcycle | `SLOW_DOWN` | Coût de la case augmenté |
-| car | `REROUTE` | Case bloquée, nouveau calcul |
-| bus, truck | `REROUTE_WIDE` | Case et voisines bloquées, nouveau calcul |
-| unknown | `CAUTIOUS_STOP` | Case bloquée, nouveau calcul |
+| person | `STOP_WAIT` | Tronçon bloqué pendant quelques pas, puis la voiture repart |
+| bicycle | `SLOW_DOWN` | Coût du tronçon multiplié (la voiture ralentit) |
+| motorcycle | `SLOW_DOWN` | Coût du tronçon multiplié (la voiture ralentit) |
+| car | `REROUTE` | Tronçon bloqué, nouveau calcul |
+| bus, truck | `REROUTE_WIDE` | Tronçon bloqué et tronçons voisins pénalisés, nouveau calcul |
+| unknown | `CAUTIOUS_STOP` | Tronçon bloqué, nouveau calcul |
 
 ## 4. Équipe A — Monde et navigation (Claude Code)
 
@@ -181,26 +183,27 @@ L'équipe A peut tout tester avec le mode `simulation`, ou avec un faux classifi
 
 | Tâche | Fichier | Terminée quand |
 | --- | --- | --- |
-| Labyrinthe avec graine aléatoire | `world/maze.py` | Reproductible à partir de sa graine ; toujours au moins deux chemins de A à B |
-| Dijkstra avec coût par case | `world/pathfinding.py` | Les tests sur de petites grilles donnent la même longueur qu'un BFS quand tous les coûts valent 1 |
-| Obstacles et voiture | `world/obstacles.py`, `world/car.py` | Obstacles placés sur le chemin ; la voiture détecte celui qui est dans sa portée (par exemple 2 cases) |
-| Règles de décision | `world/decisions.py`, `config.py` | Chaque `Action` modifie les coûts ou bloque des cases, puis relance Dijkstra depuis la position actuelle |
+| Carte réelle de Casablanca | `world/road_map.py`, `assets/casablanca_drive.graphml` | Carte OSM téléchargée une fois et versionnée ; sens uniques respectés ; plus grande composante fortement connexe |
+| Dijkstra avec coûts dynamiques | `world/pathfinding.py` | Écrit à la main (tas binaire) ; même coût que `networkx.dijkstra_path_length` sur 20 graphes aléatoires et sur la carte |
+| Obstacles et voiture | `world/obstacles.py`, `world/car.py` | Obstacles placés sur le chemin ; la voiture détecte celui qui est dans sa portée (par exemple 80 m le long de l'itinéraire) |
+| Règles de décision | `world/decisions.py`, `config.py` | Chaque `Action` pénalise ou bloque des tronçons, puis relance Dijkstra depuis la position actuelle |
 | Boucle de simulation | `engine.py` | Un épisode tourne aussi sans affichage (`--headless`) et écrit les `EncounterLog` |
-| Affichage | `ui/grid_view.py`, `ui/hud.py` | Grille, chemin prévu, voiture, obstacles, nom du classifieur et compteurs à l'écran |
+| Affichage | `ui/map_view.py`, `ui/hud.py` | Rues, itinéraire prévu, nom de la rue, voiture, obstacles, nom du classifieur et compteurs à l'écran |
 | Lancement | `main.py` | `python -m simulator.main --classifier simulation --seed 7` ouvre la fenêtre |
 
-> **Piège.** Un labyrinthe « parfait » (généré par backtracking) n'a qu'un seul chemin entre deux cases : la voiture
-> ne peut jamais contourner un obstacle. Retirez quelques murs au hasard pour créer des boucles.
+> **Piège.** Une carte découpée dans une ville contient des impasses et des sens uniques qui sortent de la zone :
+> certains itinéraires deviennent impossibles. `road_map.py` ne garde que la plus grande composante fortement
+> connexe, où chaque intersection peut rejoindre toutes les autres.
 
 **Cas limites :** aucun chemin restant (la voiture attend, puis l'épisode se termine avec le statut « bloqué »),
-obstacle sur l'arrivée, personne qui libère sa case après quelques pas.
+obstacle sur l'arrivée, personne qui libère son tronçon après quelques pas.
 
 **Terminé pour A :** sur 100 graines, chaque épisode se termine à l'arrivée ou avec le statut « bloqué », sans erreur,
 et `pytest tests/simulator/world` passe.
 
 ## 5. Équipe B — Perception et comparaison (agent Cursor)
 
-L'équipe B peut tout tester sans labyrinthe, en appelant `predict()` sur des images.
+L'équipe B peut tout tester sans carte, en appelant `predict()` sur des images.
 
 | Tâche | Fichier | Terminée quand |
 | --- | --- | --- |
@@ -255,9 +258,9 @@ Le résultat intéressant est l'**écart** et son explication. Fichiers nommés 
 | Date | Jalon | Équipe | Vérification |
 | --- | --- | --- | --- |
 | 21 oct. | `contracts.py` et `config.py` écrits et approuvés | A écrit, B relit | PR fusionnée dans `main` |
-| 21 → 30 oct. | Labyrinthe, Dijkstra, tests | A | `pytest tests/simulator/world` |
+| 21 → 30 oct. | Carte de Casablanca, Dijkstra, tests | A | `pytest tests/simulator/world` |
 | 21 → 30 oct. | Mode simulation, banque d'obstacles avec images de remplacement | B | `pytest tests/simulator/perception` |
-| 30 oct. | **Intégration 1** : la voiture traverse le labyrinthe en mode simulation (sans vue caméra) | A + B | Démo de 5 minutes |
+| 30 oct. | **Intégration 1** : la voiture va du Twin Center à la place Mohammed V en mode simulation (sans vue caméra) | A + B | Démo de 5 minutes |
 | 31 oct. → 13 nov. | Obstacles dynamiques, décisions, rendu pygame, HUD | A | Tests + démo |
 | 31 oct. → 13 nov. | Vue caméra, métriques, `compare.py` | B | Tests + démo |
 | 4 nov. | **Séance 1** : demander l'accord pour la référence préentraînée | Étudiants | Réponse notée dans le journal |
@@ -276,7 +279,7 @@ Une intégration en retard décale la suivante, jamais les séances.
 | --- | --- | --- |
 | Branche | `sim/monde` | `sim/perception` |
 | Dossier | `AutoMaze_Ai/` | `AutoMaze_Ai-perception/` (worktree) |
-| Fichiers possédés | `simulator/world/`, `engine.py`, `main.py`, `ui/grid_view.py`, `ui/hud.py` | `simulator/perception/`, `ui/camera_panel.py`, `metrics.py`, `compare.py`, notebook 06 |
+| Fichiers possédés | `simulator/world/`, `engine.py`, `main.py`, `ui/map_view.py`, `ui/hud.py` | `simulator/perception/`, `ui/camera_panel.py`, `metrics.py`, `compare.py`, notebook 06 |
 | Tests | `tests/simulator/world/` | `tests/simulator/perception/` |
 
 **Fichiers partagés**, modifiés seulement par une PR approuvée par les deux équipes : `simulator/contracts.py`,
@@ -304,6 +307,9 @@ Ces règles s'appliquent à Claude Code comme à l'agent Cursor.
 
 ## 10. Risques
 
+Données cartographiques : © contributeurs OpenStreetMap, licence ODbL. La mention doit apparaître dans l'interface et le rapport.
+
+
 | Risque | Effet | Parade |
 | --- | --- | --- |
 | L'enseignant refuse le modèle préentraîné | Le mode `reference` disparaît | Question posée en séance 1 ; le reste du plan n'en dépend pas |
@@ -317,10 +323,11 @@ Ces règles s'appliquent à Claude Code comme à l'agent Cursor.
 
 - [x] Composition des équipes : A = Claude Code, B = agent Claude dans Cursor (19 oct. 2026)
 - [ ] Accord de l'enseignant sur le modèle de référence (4 nov.)
-- [ ] Taille de la grille et nombre d'obstacles par épisode pour la démo
+- [ ] Itinéraire et nombre d'obstacles par épisode pour la démo
 - [ ] Règles de décision finales par classe, à valider avec l'équipe modèle
 
 | Date | Équipe | Note |
 | --- | --- | --- |
+| 19 oct. 2026 | A | **Changement : grille remplacée par la carte OSM de Casablanca.** `Obstacle.cell` devient `Obstacle.edge` (+ `offset_m`). Aucun impact sur les tâches de B, à confirmer à la relecture |
 | 19 oct. 2026 | A | `contracts.py`, `config.py` et leurs tests sur `sim/monde` : **à relire par B** avant fusion dans `main` |
 | 19 oct. 2026 | — | Plan créé |
