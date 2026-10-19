@@ -16,6 +16,17 @@ REPORTS_DIR = ROOT / "reports" / "simulator"         # journaux et tableaux de c
 OUR_METADATA = MODELS_DIR / "metadata.json"               # produit par le notebook 04
 REFERENCE_METADATA = MODELS_DIR / "reference_metadata.json"  # produit par le notebook 06
 
+# Carte : réseau routier réel (OpenStreetMap) d'une partie de Casablanca, du Maârif au centre-ville.
+MAP_FILE = Path(__file__).resolve().parent / "assets" / "casablanca_drive.graphml"
+MAP_BBOX = (-7.645, 33.578, -7.612, 33.600)  # (ouest, sud, est, nord) en degrés, format OSMnx 2
+
+# Lieux de départ et d'arrivée possibles (latitude, longitude), coordonnées obtenues par géocodage OSM.
+LANDMARKS: dict[str, tuple[float, float]] = {
+    "Twin Center (Maârif)": (33.58658, -7.63229),
+    "Place Mohammed V (centre-ville)": (33.59164, -7.61984),
+    "Boulevard d'Anfa": (33.59078, -7.63667),
+}
+
 # Table classe prédite -> action. Proposition à valider avec l'équipe modèle.
 DECISION_RULES: dict[str, Action] = {
     "person": Action.STOP_WAIT,
@@ -33,17 +44,18 @@ class SimConfig:
     """Réglages d'un épisode. Les valeurs par défaut sont modifiables en ligne de commande."""
 
     seed: int = 7
-    grid_rows: int = 21                  # dimensions impaires : convention des labyrinthes en grille
-    grid_cols: int = 31
-    extra_openings: float = 0.08         # part de murs retirés pour créer des boucles (sinon un seul chemin)
+    start: str = "Twin Center (Maârif)"             # clé de LANDMARKS
+    goal: str = "Place Mohammed V (centre-ville)"   # clé de LANDMARKS
     n_obstacles: int = 6
-    sensor_range: int = 2                # nombre de cases vues devant la voiture
+    sensor_range_m: float = 80.0         # distance vue devant la voiture, le long de l'itinéraire
+    car_speed_mps: float = 10.0          # environ 36 km/h
+    step_seconds: float = 1.0            # durée simulée d'un pas
     max_steps: int = 2000                # au-delà, l'épisode se termine avec le statut « bloqué »
 
     # Effets des actions sur la recherche de chemin (équipe A)
-    wait_steps: int = 5                  # STOP_WAIT : nombre de pas où la case reste bloquée
-    slow_cost: float = 5.0               # SLOW_DOWN : coût d'une case (1.0 = case libre)
-    wide_radius: int = 1                 # REROUTE_WIDE : cases voisines bloquées autour de l'obstacle
+    wait_steps: int = 5                  # STOP_WAIT : nombre de pas où le tronçon reste bloqué
+    slow_factor: float = 3.0             # SLOW_DOWN : coût du tronçon multiplié (vitesse divisée d'autant)
+    wide_penalty: float = 10.0           # REROUTE_WIDE : pénalité des tronçons voisins de l'obstacle
 
     # Perception (équipe B)
     confidence_threshold: float = 0.5    # sous ce score, le label devient UNKNOWN ; à régler sur la validation

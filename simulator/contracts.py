@@ -82,15 +82,18 @@ class Classifier(ABC):
 
 @dataclass(frozen=True)
 class Obstacle:
-    """Un obstacle placé dans la grille. Le simulateur connaît sa position et sa vraie classe."""
+    """Un obstacle placé sur un tronçon de rue. Le simulateur connaît sa position et sa vraie classe."""
 
-    cell: tuple[int, int]      # (ligne, colonne) dans la grille
-    true_label: str            # vraie classe, une valeur de CLASSES
-    image_path: Path | None    # image du jeu de test ; None = image de remplacement générée
+    edge: tuple[int, int, int]  # tronçon de la carte OSM : (intersection de départ, d'arrivée, clé)
+    true_label: str             # vraie classe, une valeur de CLASSES
+    image_path: Path | None     # image du jeu de test ; None = image de remplacement générée
+    offset_m: float = 0.0       # distance depuis le début du tronçon (pour l'affichage)
 
     def __post_init__(self) -> None:
         if self.true_label not in CLASSES:
             raise ValueError(f"true_label doit être une classe entraînée, reçu {self.true_label!r}")
+        if self.offset_m < 0:
+            raise ValueError("offset_m ne peut pas être négatif")
 
 
 class Action(Enum):

@@ -49,9 +49,9 @@ def test_prediction_rejects_invalid(kwargs):
 
 
 def test_obstacle_requires_trained_class():
-    Obstacle(cell=(1, 1), true_label="bus", image_path=None)
+    Obstacle(edge=(1, 2, 0), true_label="bus", image_path=None)
     with pytest.raises(ValueError):
-        Obstacle(cell=(1, 1), true_label=UNKNOWN, image_path=None)
+        Obstacle(edge=(1, 2, 0), true_label=UNKNOWN, image_path=None)
 
 
 def test_classifier_is_abstract():
