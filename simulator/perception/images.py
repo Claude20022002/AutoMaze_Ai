@@ -7,6 +7,8 @@ des canaux dégrade le modèle sans aucun message d'erreur (piège de la section
 
 from __future__ import annotations
 
+import unicodedata
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -58,8 +60,24 @@ def placeholder_image(label: str, size: int = PLACEHOLDER_SIZE) -> np.ndarray:
     return np.asarray(img, dtype=np.uint8).copy()
 
 
+@lru_cache(maxsize=1)
+def _accented_font_path() -> str | None:
+    """Police DejaVu Sans livrée avec matplotlib : la police par défaut de Pillow n'a pas les accents (« Vélo »)."""
+    try:
+        from matplotlib import font_manager
+
+        return font_manager.findfont("DejaVu Sans", fallback_to_default=False)
+    except (ImportError, ValueError):
+        return None
+
+
 def _draw_centered(draw: ImageDraw.ImageDraw, text: str, size: int, y: float, font_size: int) -> None:
-    font = ImageFont.load_default(size=font_size)
+    font_path = _accented_font_path()
+    if font_path is not None:
+        font = ImageFont.truetype(font_path, font_size)
+    else:  # sans matplotlib : police par défaut, texte sans accents
+        font = ImageFont.load_default(size=font_size)
+        text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
     x = (size - (right - left)) / 2 - left
     draw.text((x, y - (bottom - top) / 2 - top), text, fill=(255, 255, 255), font=font)

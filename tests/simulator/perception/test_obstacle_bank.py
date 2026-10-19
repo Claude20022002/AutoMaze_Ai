@@ -71,10 +71,13 @@ def test_sample_returns_image_of_requested_class(crops_dir):
 
 def test_sampling_is_reproducible(crops_dir):
     bank = ObstacleBank(crops_dir)
-    draw = lambda seed: [bank.sample_image_path("car", np.random.default_rng(seed)) for _ in range(1)]  # noqa: E731
-    seq = lambda seed: [bank.sample_image_path("car", rng) for rng in [np.random.default_rng(seed)] for _ in range(20)]  # noqa: E731
-    assert draw(5) == draw(5)
-    assert seq(5) == seq(5)
+
+    def draws(seed: int) -> list:
+        rng = np.random.default_rng(seed)
+        return [bank.sample_image_path("car", rng) for _ in range(20)]
+
+    assert draws(5) == draws(5)
+    assert ObstacleBank(crops_dir).sample_image_path("car", np.random.default_rng(5)) == draws(5)[0]
 
 
 def test_load_real_image_is_rgb_uint8(crops_dir):
