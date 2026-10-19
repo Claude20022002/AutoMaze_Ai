@@ -4,6 +4,7 @@
 numpy>=2.0
 pandas>=2.2
 matplotlib>=3.8
+pillow>=10.1         # simulateur : lecture RGB des recadrages, images de remplacement
 seaborn>=0.13
 opencv-python>=4.10
 scikit-learn>=1.6
