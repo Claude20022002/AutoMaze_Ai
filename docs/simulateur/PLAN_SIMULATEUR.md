@@ -89,6 +89,16 @@ La `Prediction` renvoyée détermine une `Action` (A), et Dijkstra recalcule le 
 ## 3. Contrats d'interface (figés le 21 octobre)
 
 `simulator/contracts.py` est écrit en premier, par l'équipe A, puis relu et approuvé par l'équipe B avant tout autre code.
+**Le fichier `simulator/contracts.py` fait foi** ; l'extrait ci-dessous en donne l'essentiel. Le code réel ajoute :
+
+- une validation dans `Prediction` (label connu, 6 probabilités de somme 1, score entre 0 et 1) : un classifieur
+  qui ne respecte pas le contrat échoue immédiatement, au lieu de produire une décision fausse ;
+- `Obstacle.image_path` peut valoir `None` (image de remplacement générée tant que les recadrages n'existent pas) ;
+- `EncounterLog.correct` et `EncounterLog.severe_error` (personne non reconnue), utilisés par `metrics.py` ;
+- `config.check_metadata_classes()`, qui refuse un modèle dont l'ordre des classes diffère
+  (piège classique : `ImageFolder` trie les classes par ordre alphabétique).
+
+Tests : `python -m pytest tests/simulator/test_contracts.py`.
 
 ```python
 from abc import ABC, abstractmethod
@@ -312,4 +322,5 @@ Ces règles s'appliquent à Claude Code comme à l'agent Cursor.
 
 | Date | Équipe | Note |
 | --- | --- | --- |
+| 19 oct. 2026 | A | `contracts.py`, `config.py` et leurs tests sur `sim/monde` : **à relire par B** avant fusion dans `main` |
 | 19 oct. 2026 | — | Plan créé |

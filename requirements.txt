@@ -11,3 +11,6 @@ torch>=2.11
 torchvision>=0.26
 tqdm>=4.66
 jupyter
+# Simulateur (local uniquement : pygame ouvre une fenêtre, impossible sur Colab)
+pygame>=2.5
+pytest>=8.0
