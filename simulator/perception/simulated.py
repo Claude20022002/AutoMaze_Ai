@@ -40,8 +40,9 @@ class SimulatedClassifier(Classifier):
         """
         if not 0.0 <= error_rate <= 1.0:
             raise ValueError(f"error_rate doit être compris entre 0 et 1, reçu {error_rate}")
-        if not 1 / len(CLASSES) <= confidence <= 1.0:
-            raise ValueError(f"confidence doit être comprise entre 1/{len(CLASSES)} et 1, reçu {confidence}")
+        # Strictement au-dessus de 1/6 : sinon la classe choisie ne serait plus celle de score maximal.
+        if not 1 / len(CLASSES) < confidence <= 1.0:
+            raise ValueError(f"confidence doit être dans ]1/{len(CLASSES)}, 1], reçu {confidence}")
         self.error_rate = float(error_rate)
         self.confidence = float(confidence)
         self.threshold = check_threshold(threshold)
