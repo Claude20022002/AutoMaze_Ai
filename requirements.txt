@@ -1,0 +1,11 @@
+# Versions testées le 2026-10-19 (Python 3.13)
+numpy>=2.4
+pandas>=3.0
+matplotlib>=3.10
+seaborn>=0.13
+opencv-python>=4.13
+scikit-learn>=1.8
+torch>=2.12
+torchvision>=0.27
+tqdm>=4.70
+jupyter
