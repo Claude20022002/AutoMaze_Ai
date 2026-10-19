@@ -9,7 +9,7 @@ from simulator.engine import ARRIVED, BLOCKED
 from simulator.ui import theme
 from simulator.world.road_map import street_name
 
-CONTROLS = ("Espace pause · → pas à pas · ↑↓ vitesse", "R recommencer · N épisode suivant · Échap quitter")
+CONTROLS = ("Espace pause · → pas à pas · ↑↓ vitesse · V vue carte/conducteur", "R recommencer · N épisode suivant · Échap quitter")
 
 
 def _fr(label: str) -> str:

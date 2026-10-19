@@ -100,8 +100,14 @@ def run(args: argparse.Namespace) -> Path | None:
     pygame.display.set_caption("AutoMaze AI — simulateur (Casablanca)")
     from simulator.world.road_map import landmark_node
 
+    from simulator.ui.driver_view import DriverView
+    from simulator.ui.minimap import MiniMap
+
     focus = [landmark_node(graph, config.start), landmark_node(graph, config.goal)]
     map_view = MapView(graph, pygame.Rect(0, 0, MAP_WIDTH, WINDOW[1]), focus_nodes=focus)
+    driver_view = DriverView(graph, pygame.Rect(0, 0, MAP_WIDTH, WINDOW[1]))
+    minimap = MiniMap(graph, center=(MAP_WIDTH - 135, 135))
+    view_mode = args.view
     side_x, side_w = MAP_WIDTH + 16, WINDOW[0] - MAP_WIDTH - 32
     camera = load_camera_panel(pygame.Rect(side_x, 16, side_w, 230))
     hud = Hud(pygame.Rect(side_x, 262, side_w, WINDOW[1] - 278))
@@ -113,10 +119,16 @@ def run(args: argparse.Namespace) -> Path | None:
     episode = new_episode(episode_number)
     clock = pygame.time.Clock()
     steps_per_second, paused, budget = args.speed, False, 0.0
+    previous = (episode.car.position_xy(), episode.car.heading())  # pour lisser la caméra entre deux pas
+
+    def advance() -> None:
+        nonlocal previous
+        previous = (episode.car.position_xy(), episode.car.heading())
+        episode.step()
 
     if args.screenshot:  # avance de N pas puis enregistre l'image
         for _ in range(args.steps):
-            episode.step()
+            advance()
 
     while True:
         for event in pygame.event.get():
@@ -127,26 +139,42 @@ def run(args: argparse.Namespace) -> Path | None:
                 if event.key == pygame.K_SPACE:
                     paused = not paused
                 elif event.key == pygame.K_RIGHT and paused:
-                    episode.step()
+                    advance()
+                elif event.key == pygame.K_v:
+                    view_mode = "carte" if view_mode == "conducteur" else "conducteur"
                 elif event.key == pygame.K_UP:
                     steps_per_second = min(steps_per_second * 2, 160)
                 elif event.key == pygame.K_DOWN:
                     steps_per_second = max(steps_per_second / 2, 1.25)
-                elif event.key == pygame.K_r:
+                elif event.key in (pygame.K_r, pygame.K_n):
+                    if event.key == pygame.K_n:
+                        episode_number += 1
                     episode = new_episode(episode_number)
-                elif event.key == pygame.K_n:
-                    episode_number += 1
-                    episode = new_episode(episode_number)
+                    previous = (episode.car.position_xy(), episode.car.heading())
 
         dt = clock.tick(args.fps) / 1000
         if not paused and not episode.done and not args.screenshot:
             budget += dt * steps_per_second
             while budget >= 1 and not episode.done:
-                episode.step()
+                advance()
                 budget -= 1
 
+        # Position affichée : interpolée entre le pas précédent et le pas actuel (mouvement fluide).
+        alpha = 1.0 if (paused or episode.done or args.screenshot) else min(budget, 1.0)
+        (px, py), (hx, hy) = previous
+        cx, cy = episode.car.position_xy()
+        if abs(cx - px) + abs(cy - py) > 60:  # demi-tour ou nouvel épisode : pas d'interpolation
+            alpha = 1.0
+        position = (px + (cx - px) * alpha, py + (cy - py) * alpha)
+        heading = episode.car.heading() if alpha >= 1.0 else (hx + (episode.car.heading()[0] - hx) * alpha,
+                                                              hy + (episode.car.heading()[1] - hy) * alpha)
+
         screen.fill((236, 234, 228))
-        map_view.draw(screen, episode, config.start, config.goal)
+        if view_mode == "conducteur":
+            driver_view.draw(screen, episode, images, position, heading)
+            minimap.draw(screen, episode, position, heading)
+        else:
+            map_view.draw(screen, episode, config.start, config.goal)
         camera.draw(screen, episode.last_detection)
         hud.draw(screen, episode, paused, steps_per_second)
         pygame.display.flip()
@@ -166,6 +194,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--episode", type=int, default=0)
     parser.add_argument("--speed", type=float, default=10.0, help="pas simulés par seconde")
     parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument("--view", choices=("conducteur", "carte"), default="conducteur", help="vue au démarrage (touche V)")
     parser.add_argument("--screenshot", help="enregistre une image au lieu d'ouvrir la fenêtre")
     parser.add_argument("--steps", type=int, default=150, help="pas simulés avant la capture")
     out = run(parser.parse_args(argv))

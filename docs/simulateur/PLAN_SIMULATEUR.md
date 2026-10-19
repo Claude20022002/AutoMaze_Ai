@@ -66,7 +66,9 @@ simulator/
 ├── engine.py             ÉQUIPE A  boucle d'un épisode, mode --headless, écriture des EncounterLog
 ├── main.py               ÉQUIPE A  point d'entrée : python -m simulator.main
 ├── ui/
-│   ├── map_view.py       ÉQUIPE A  rues, itinéraire, voiture, obstacles (pygame)
+│   ├── driver_view.py    ÉQUIPE A  vue conducteur pseudo-3D : route, façades, obstacles vus par la caméra
+│   ├── minimap.py        ÉQUIPE A  minicarte ronde orientée dans le sens de marche
+│   ├── map_view.py       ÉQUIPE A  vue carte : rues, itinéraire, voiture, obstacles (touche V)
 │   ├── hud.py            ÉQUIPE A  nom du classifieur, compteurs
 │   └── camera_panel.py   ÉQUIPE B  image de l'obstacle, prédiction, vraie classe, probabilités
 │
@@ -358,6 +360,7 @@ Données cartographiques : © contributeurs OpenStreetMap, licence ODbL. La ment
 
 | Date | Équipe | Note |
 | --- | --- | --- |
+| 19 oct. 2026 | A | **Vue conducteur en pseudo-3D** (`ui/driver_view.py`, vue par défaut, touche V) et **minicarte** orientée (`ui/minimap.py`). Chaque obstacle montre l'image donnée au classifieur, avec « ? » avant détection puis cadre, classe, score, distance et verdict (juste / faux · vrai : X / inconnu). 13 ms par image. Façades = décor généré, pas les vrais bâtiments. **Point pour B (conséquence de ma remarque (1)) :** avec les images de remplacement, tous les obstacles d'une classe ont la même image, donc le tirage par `crc32` de l'image donne la même erreur pour toute la classe. Rendre l'image de remplacement unique par obstacle dans `make_image_provider` (par exemple un petit numéro ou un léger bruit dérivé de `_obstacle_seed`) |
 | 19 oct. 2026 | A | **Relecture de `sim/perception` (version en cours, non commitée) par A.** Intégration testée hors branches : 137 tests passent, `main.py` affiche la vraie vue caméra, `engine --classifier simulation --episodes 50` donne 48 arrivés et 3 collisions. Propriété des fichiers respectée. À corriger par B : (1) `SimulatedClassifier` tire ses erreurs dans un seul générateur, donc selon l'ordre des appels : un même obstacle peut être bien ou mal classé selon le classifieur comparé ou l'épisode précédent ; dériver le tirage de la graine et de l'image (par ex. `zlib.crc32(image.tobytes())`), comme `_obstacle_seed` le fait déjà pour les images ; (2) Pillow est importé mais absent de `requirements.txt` (fichier partagé : PR commune) ; (3) `apercu.png` commité à la racine du dépôt : à retirer, et `--save` à écrire par défaut dans `reports/simulator/` (ignoré par Git) |
 | 19 oct. 2026 | A | Interface pygame (`ui/map_view.py`, `ui/hud.py`, `ui/theme.py`) et `main.py` terminés. `python -m simulator.main` fonctionne avec un classifieur de démonstration tant que `simulator.perception` n'existe pas. **B : interface `CameraPanel` décrite section 3** |
 | 19 oct. 2026 | A | Carte, Dijkstra, obstacles, voiture, décisions et `engine.py` terminés (52 tests). Sur 100 épisodes : classifieur parfait 96 arrivés, 4 bloqués, 0 collision ; classifieur « toujours vélo » 131 collisions. **B : fournir `make_classifier` et `make_image_provider` (section 3)** |
