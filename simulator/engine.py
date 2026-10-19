@@ -110,7 +110,14 @@ class Episode:
         if self.done or self.wait > 0 or self.pending_replan:
             return 0.0
         speed = self.config.car_speed_mps
-        return speed / self.config.slow_factor if self.car.current_edge in self.slow_edges else speed
+        return speed / self.config.slow_factor if self._in_slow_zone() else speed
+
+    def _in_slow_zone(self) -> bool:
+        """Vrai si un obstacle pour lequel on a décidé de ralentir se trouve sur la portée du capteur."""
+        for _, state, ahead in self._remaining_obstacles():
+            if state.obstacle.edge in self.slow_edges and state.present(self.step_count)                     and ahead <= self.config.sensor_range_m:
+                return True
+        return self.car.current_edge in self.slow_edges
 
     def run(self) -> EpisodeResult:
         while not self.done:
@@ -194,9 +201,8 @@ class Episode:
         return True
 
     def _move(self) -> None:
-        current = self.car.current_edge
         distance = self.config.car_speed_mps * self.config.step_seconds
-        if current in self.slow_edges:
+        if self._in_slow_zone():
             distance /= self.config.slow_factor
 
         # Collision : un obstacle encore présent se trouve sur la distance à parcourir pendant ce pas.

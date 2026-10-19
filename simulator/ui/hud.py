@@ -9,7 +9,7 @@ from simulator.engine import ARRIVED, BLOCKED
 from simulator.ui import theme
 from simulator.world.road_map import street_name
 
-CONTROLS = ("Espace pause · → pas à pas · ↑↓ vitesse · V vue carte/conducteur", "R recommencer · N épisode suivant · Échap quitter")
+CONTROLS = ("Espace pause · → pas à pas · ↑↓ vitesse · V vue · F11 plein écran", "R recommencer · N épisode suivant · Échap quitter")
 
 
 def _fr(label: str) -> str:
@@ -20,7 +20,7 @@ class Hud:
     def __init__(self, rect: pygame.Rect) -> None:
         self.rect = rect
 
-    def draw(self, surface: pygame.Surface, episode, paused: bool, steps_per_second: float) -> None:
+    def draw(self, surface: pygame.Surface, episode, paused: bool, time_factor: float) -> None:
         pygame.draw.rect(surface, theme.PANEL, self.rect, border_radius=8)
         pygame.draw.rect(surface, theme.BORDER, self.rect, 1, border_radius=8)
         x, y, width = self.rect.x + 16, self.rect.y + 12, self.rect.w - 32
@@ -47,7 +47,7 @@ class Hud:
 
         street = theme.latin(street_name(episode.graph, car.current_edge)) if car.current_edge else "—"
         lines = [
-            f"Épisode {episode.episode} · pas {episode.step_count} · {steps_per_second:g} pas/s",
+            f"Épisode {episode.episode} · pas {episode.step_count} · temps réel ×{time_factor:g}",
             f"Rue : {street}",
             f"Distance : {car.distance_m:,.0f} m (trajet prévu {episode.planned.length_m:,.0f} m)".replace(",", " "),
             f"Recalculs : {r.replans} · Collisions : {r.collisions} · Attente : {r.waiting_steps} pas",

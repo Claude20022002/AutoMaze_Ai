@@ -16,6 +16,7 @@ les vrais bâtiments de Casablanca.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
@@ -27,13 +28,16 @@ from simulator.world.car import point_on_edge
 from simulator.world.road_map import street_name
 
 CAMERA_HEIGHT_M = 1.5
-FIELD_OF_VIEW_DEG = 56.0                 # champ étroit : les obstacles restent lisibles à 80 m
+FIELD_OF_VIEW_DEG = 50.0                 # champ étroit : les obstacles restent lisibles à 80 m
 NEAR_M = 1.0
 VIEW_DISTANCE_M = 240.0
 FACADE_DISTANCE_M = 170.0
 MARKING_DISTANCE_M = 90.0
 LANE_OFFSET_M = 1.8                      # on roule à droite : caméra et obstacles décalés sur la voie de droite
-MIN_SPRITE_PX = 26                       # taille minimale d'affichage d'un obstacle, pour rester lisible au loin
+MIN_SPRITE_PX = 44                       # taille minimale d'affichage d'un obstacle, pour rester lisible au loin
+THUMBNAIL_PX = 64                        # vignette « entrée du modèle » à côté d'un obstacle classé
+SPRITES_DIR = Path(__file__).resolve().parent.parent / "assets" / "obstacles"
+ASSETS_CREDIT = "Illustrations : OpenMoji (CC BY-SA 4.0) · Carte : © contributeurs OpenStreetMap"
 MAJOR_ROADS = {"motorway", "trunk", "primary", "secondary"}
 
 SKY_TOP, SKY_LOW = (122, 166, 214), (214, 226, 238)
@@ -43,9 +47,8 @@ ASPHALT, ASPHALT_MAJOR, FOG, MARKING = (88, 90, 95), (74, 76, 81), (200, 206, 21
 FACADE_COLORS = np.array([(242, 238, 226), (233, 226, 208), (247, 245, 238), (226, 214, 192), (238, 232, 220)])
 LIGHT = np.array([-0.6, -0.8])           # direction d'où vient la lumière (pour ombrer les façades)
 
-# Taille d'affichage de chaque classe (largeur, hauteur) en mètres ; l'image est ajustée sans déformation.
-OBSTACLE_SIZE_M = {"person": (0.8, 1.8), "bicycle": (1.7, 1.6), "motorcycle": (1.9, 1.5),
-                   "car": (2.8, 1.7), "bus": (3.4, 3.2), "truck": (3.2, 3.4)}
+# Hauteur réelle de chaque obstacle en mètres (la largeur suit les proportions de l'illustration).
+OBSTACLE_HEIGHT_M = {"person": 1.75, "bicycle": 1.8, "motorcycle": 1.25, "car": 1.5, "bus": 3.2, "truck": 3.4}
 
 
 def _lerp(c1, c2, t: float):
@@ -64,15 +67,21 @@ def _clip_near(a: np.ndarray, b: np.ndarray, forward: np.ndarray, near: float = 
 
 class DriverView:
     def __init__(self, graph: nx.MultiDiGraph, rect: pygame.Rect) -> None:
-        self.graph, self.rect = graph, rect
-        self.focal = (rect.w / 2) / math.tan(math.radians(FIELD_OF_VIEW_DEG / 2))
-        self.horizon = rect.y + int(rect.h * 0.42)
+        self.graph = graph
         self._heading: np.ndarray | None = None
         self._images: dict = {}
-        self._background = self._render_background()
+        self._sprites: dict = {}
+        self.resize(rect)
         self._build_segments()
         self._build_markings()
         self._build_facades()
+
+    def resize(self, rect: pygame.Rect) -> None:
+        """Adapte la vue à une nouvelle taille de fenêtre (la géométrie de la ville ne change pas)."""
+        self.rect = rect
+        self.focal = (rect.w / 2) / math.tan(math.radians(FIELD_OF_VIEW_DEG / 2))
+        self.horizon = rect.y + int(rect.h * 0.42)
+        self._background = self._render_background()
 
     # ------------------------------------------------------------------ préparation (une seule fois)
     def _build_segments(self) -> None:
@@ -214,7 +223,7 @@ class DriverView:
                           for i in self.edge_segments[e]], dtype=int)
         if len(route):
             self._ground_quads(surface, self.seg_a[route], self.seg_b[route], np.full(len(route), 0.55),
-                               np.tile(theme.ROUTE, (len(route), 1)), eye, forward, right, fog=False, extend=0.0, near=6.0)
+                               np.tile(theme.ROUTE, (len(route), 1)), eye, forward, right, fog=False, extend=0.0, near=10.0)
 
         self._draw_sensor_line(surface, episode)
         # 2. Façades et obstacles, triés ensemble du plus loin au plus proche.
@@ -295,35 +304,41 @@ class DriverView:
             self._images[obstacle] = pygame.surfarray.make_surface(rgb)
         return self._images[obstacle]
 
+    def _sprite(self, label: str) -> pygame.Surface:
+        """Illustration OpenMoji de la classe (affichage seulement : elle n'est jamais donnée au modèle)."""
+        if label not in self._sprites:
+            image = pygame.image.load(str(SPRITES_DIR / f"{label}.png")).convert_alpha()
+            image = image.subsurface(image.get_bounding_rect()).copy()   # retire les marges transparentes
+            scale = 256 / image.get_height()                             # taille de travail raisonnable
+            self._sprites[label] = pygame.transform.smoothscale(
+                image, (round(image.get_width() * scale), 256))
+        return self._sprites[label]
+
     def _draw_obstacle(self, surface, episode, image_for, payload, z, forward, right) -> None:
         state, rel = payload
         ob = state.obstacle
-        box_w, box_h = OBSTACLE_SIZE_M[ob.true_label]
-        image = self._image(ob, image_for)
-        fit = min(box_w / image.get_width(), box_h / image.get_height())
-        scale = self.focal / z
-        w_px, h_px = image.get_width() * fit * scale, image.get_height() * fit * scale
-        if h_px < MIN_SPRITE_PX:  # au loin, on agrandit un peu pour que l'image reste lisible
-            w_px, h_px = w_px * MIN_SPRITE_PX / h_px, MIN_SPRITE_PX
+        sprite_src = self._sprite(ob.true_label)
+        h_px = self.focal * OBSTACLE_HEIGHT_M[ob.true_label] / z
+        h_px = max(h_px, MIN_SPRITE_PX)  # au loin, on agrandit pour que l'obstacle reste visible
+        w_px = h_px * sprite_src.get_width() / sprite_src.get_height()
         if h_px > self.rect.h * 2:
             return
         cx = self.rect.centerx + self.focal * float(rel @ right) / z
         bottom = self.horizon + self.focal * CAMERA_HEIGHT_M / z
         target = pygame.Rect(int(cx - w_px / 2), int(bottom - h_px), max(int(w_px), 2), max(int(h_px), 2))
 
-        shadow = pygame.Surface((target.w, max(target.h // 8, 2)), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow, (0, 0, 0, 70), shadow.get_rect())
+        shadow = pygame.Surface((target.w, max(target.h // 7, 3)), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow, (0, 0, 0, 80), shadow.get_rect())
         surface.blit(shadow, (target.x, bottom - shadow.get_height() // 2))
-        sprite = pygame.transform.smoothscale(image, target.size)
-        fade = min(z / VIEW_DISTANCE_M, 1.0) ** 1.5 * 0.5  # brume au loin
+        sprite = pygame.transform.smoothscale(sprite_src, target.size)
+        fade = min(z / VIEW_DISTANCE_M, 1.0) ** 1.5 * 0.45  # brume au loin : on éclaircit les couleurs
         if fade > 0.02:
-            veil = pygame.Surface(target.size, pygame.SRCALPHA)
-            veil.fill((*FOG, int(255 * fade)))
-            sprite.blit(veil, (0, 0))
+            lift = int(255 * fade)
+            sprite.fill((lift, lift, lift, 0), special_flags=pygame.BLEND_RGBA_ADD)
         surface.blit(sprite, target)
-        self._draw_detection_box(surface, episode, state, target, z)
+        self._draw_detection_box(surface, episode, state, target, z, image_for)
 
-    def _draw_detection_box(self, surface, episode, state, target: pygame.Rect, z: float) -> None:
+    def _draw_detection_box(self, surface, episode, state, target: pygame.Rect, z: float, image_for) -> None:
         """Cadre façon caméra embarquée : « ? » avant la détection, puis classe prédite, score et verdict."""
         pad = max(4, target.h // 12)
         box = target.inflate(pad * 2, pad * 2)
@@ -356,6 +371,21 @@ class DriverView:
             vtag.clamp_ip(self.rect)
             pygame.draw.rect(surface, vcolor, vtag, border_radius=4)
             theme.draw_text(surface, text, (vtag.x + 6, vtag.y + 1), 12, theme.PANEL, bold=True)
+
+            # Vignette : l'image exacte qui a été donnée au classifieur.
+            thumb = pygame.Rect(0, 0, THUMBNAIL_PX, THUMBNAIL_PX)
+            thumb.topleft = (box.right + 8, box.y)
+            if thumb.right > self.rect.right - 4:
+                thumb.topright = (box.x - 8, box.y)
+            thumb.clamp_ip(self.rect)
+            caption_w = theme.font(10).size("entrée du modèle")[0]
+            frame = thumb.inflate(max(6, caption_w + 10 - thumb.w), 22)
+            frame.top = thumb.top - 3
+            frame.clamp_ip(self.rect)
+            pygame.draw.rect(surface, theme.PANEL, frame, border_radius=4)
+            pygame.draw.rect(surface, color, frame, 2, border_radius=4)
+            surface.blit(pygame.transform.smoothscale(self._image(state.obstacle, image_for), thumb.size), thumb)
+            theme.draw_text(surface, "entrée du modèle", (frame.x + 4, thumb.bottom + 2), 10, theme.QUIET)
 
     def _draw_hood(self, surface) -> None:
         r = self.rect
@@ -395,6 +425,8 @@ class DriverView:
         else:
             state, color = "", theme.PANEL
         theme.draw_text(surface, state, (dash.x + 116, dash.y + 13), 13, color, bold=True)
+
+        theme.draw_text(surface, ASSETS_CREDIT, (r.x + 10, r.bottom - 20), 11, (225, 228, 232))
 
         # Collision : flash rouge pendant deux pas.
         if episode.last_collision_step is not None and episode.step_count - episode.last_collision_step < 2:

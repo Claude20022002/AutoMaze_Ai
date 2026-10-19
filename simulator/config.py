@@ -47,8 +47,8 @@ class SimConfig:
     start: str = "Twin Center (Maârif)"             # clé de LANDMARKS
     goal: str = "Place Mohammed V (centre-ville)"   # clé de LANDMARKS
     n_obstacles: int = 6
-    sensor_range_m: float = 80.0         # distance vue devant la voiture, le long de l'itinéraire
-    car_speed_mps: float = 10.0          # environ 36 km/h
+    sensor_range_m: float = 35.0         # distance de détection devant la voiture (caméra en ville, 29 km/h)
+    car_speed_mps: float = 8.0           # environ 29 km/h, vitesse de circulation en ville
     step_seconds: float = 1.0            # durée simulée d'un pas
     max_steps: int = 2000                # au-delà, l'épisode se termine avec le statut « bloqué »
 

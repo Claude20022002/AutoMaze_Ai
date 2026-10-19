@@ -4,7 +4,8 @@
     python -m simulator.main --classifier ours --episode 3     # notre CNN, épisode n° 3
     python -m simulator.main --screenshot capture.png          # image après 150 pas, sans fenêtre
 
-Commandes : Espace pause · → pas à pas · ↑/↓ vitesse · R recommencer · N épisode suivant · Échap quitter.
+Commandes : Espace pause · → pas à pas · ↑/↓ vitesse · V vue conducteur/carte · F11 plein écran ·
+R recommencer · N épisode suivant · Échap quitter. La fenêtre se redimensionne à la souris.
 """
 
 from __future__ import annotations
@@ -18,8 +19,6 @@ from simulator.config import SimConfig
 from simulator.contracts import CLASSES, Classifier, Prediction
 from simulator.engine import Detection, Episode, gray_placeholder
 
-WINDOW = (1280, 800)
-MAP_WIDTH = 840
 
 
 class _DemoClassifier(Classifier):
@@ -87,30 +86,39 @@ def run(args: argparse.Namespace) -> Path | None:
         os.environ.setdefault("SDL_VIDEODRIVER", "dummy")  # rendu sans fenêtre
     import pygame
 
+    from simulator.ui.driver_view import DriverView
     from simulator.ui.hud import Hud
     from simulator.ui.map_view import MapView
-    from simulator.world.road_map import load_map
+    from simulator.ui.minimap import MiniMap
+    from simulator.world.road_map import landmark_node, load_map
 
     config = SimConfig(seed=args.seed)
     graph = load_map()
     classifier, images = load_perception(args.classifier, config)
 
     pygame.init()
-    screen = pygame.display.set_mode(WINDOW)
+    size = args.size or default_window_size()
+    screen = pygame.display.set_mode(size, pygame.RESIZABLE)
     pygame.display.set_caption("AutoMaze AI — simulateur (Casablanca)")
-    from simulator.world.road_map import landmark_node
-
-    from simulator.ui.driver_view import DriverView
-    from simulator.ui.minimap import MiniMap
-
     focus = [landmark_node(graph, config.start), landmark_node(graph, config.goal)]
-    map_view = MapView(graph, pygame.Rect(0, 0, MAP_WIDTH, WINDOW[1]), focus_nodes=focus)
-    driver_view = DriverView(graph, pygame.Rect(0, 0, MAP_WIDTH, WINDOW[1]))
-    minimap = MiniMap(graph, center=(MAP_WIDTH - 135, 135))
+    driver_view = DriverView(graph, pygame.Rect(0, 0, *size))  # la géométrie de la ville est préparée une fois
+    views: dict = {}
     view_mode = args.view
-    side_x, side_w = MAP_WIDTH + 16, WINDOW[0] - MAP_WIDTH - 32
-    camera = load_camera_panel(pygame.Rect(side_x, 16, side_w, 230))
-    hud = Hud(pygame.Rect(side_x, 262, side_w, WINDOW[1] - 278))
+
+    def layout(width: int, height: int) -> None:
+        """Place les zones selon la taille de la fenêtre : grande vue à gauche, panneau à droite."""
+        side_w = min(max(int(width * 0.30), 380), 460)
+        main_area = pygame.Rect(0, 0, width - side_w, height)
+        x, w = main_area.right + 16, side_w - 32
+        driver_view.resize(main_area)
+        views.update(
+            map=MapView(graph, main_area, focus_nodes=focus),
+            minimap=MiniMap(graph, center=(main_area.right - 135, 135)),
+            camera=load_camera_panel(pygame.Rect(x, 16, w, 230)),
+            hud=Hud(pygame.Rect(x, 262, w, height - 278)),
+        )
+
+    layout(*size)
 
     def new_episode(number: int) -> Episode:
         return Episode(graph, classifier, config, number, image_for=images)
@@ -118,7 +126,7 @@ def run(args: argparse.Namespace) -> Path | None:
     episode_number = args.episode
     episode = new_episode(episode_number)
     clock = pygame.time.Clock()
-    steps_per_second, paused, budget = args.speed, False, 0.0
+    time_factor, paused, budget, fullscreen = args.time_factor, False, 0.0, False
     previous = (episode.car.position_xy(), episode.car.heading())  # pour lisser la caméra entre deux pas
 
     def advance() -> None:
@@ -135,6 +143,10 @@ def run(args: argparse.Namespace) -> Path | None:
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
                 return None
+            if event.type == pygame.VIDEORESIZE and not fullscreen:
+                width, height = max(event.w, 1000), max(event.h, 640)
+                screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
+                layout(width, height)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     paused = not paused
@@ -143,9 +155,14 @@ def run(args: argparse.Namespace) -> Path | None:
                 elif event.key == pygame.K_v:
                     view_mode = "carte" if view_mode == "conducteur" else "conducteur"
                 elif event.key == pygame.K_UP:
-                    steps_per_second = min(steps_per_second * 2, 160)
+                    time_factor = min(time_factor * 2, 32)
                 elif event.key == pygame.K_DOWN:
-                    steps_per_second = max(steps_per_second / 2, 1.25)
+                    time_factor = max(time_factor / 2, 0.25)
+                elif event.key == pygame.K_F11:
+                    fullscreen = not fullscreen
+                    screen = pygame.display.set_mode((0, 0) if fullscreen else size,
+                                                     pygame.FULLSCREEN if fullscreen else pygame.RESIZABLE)
+                    layout(*screen.get_size())
                 elif event.key in (pygame.K_r, pygame.K_n):
                     if event.key == pygame.K_n:
                         episode_number += 1
@@ -154,7 +171,8 @@ def run(args: argparse.Namespace) -> Path | None:
 
         dt = clock.tick(args.fps) / 1000
         if not paused and not episode.done and not args.screenshot:
-            budget += dt * steps_per_second
+            # Temps réel × time_factor : un pas représente config.step_seconds secondes.
+            budget += dt * time_factor / config.step_seconds
             while budget >= 1 and not episode.done:
                 advance()
                 budget -= 1
@@ -165,18 +183,18 @@ def run(args: argparse.Namespace) -> Path | None:
         cx, cy = episode.car.position_xy()
         if abs(cx - px) + abs(cy - py) > 60:  # demi-tour ou nouvel épisode : pas d'interpolation
             alpha = 1.0
+        hx2, hy2 = episode.car.heading()
         position = (px + (cx - px) * alpha, py + (cy - py) * alpha)
-        heading = episode.car.heading() if alpha >= 1.0 else (hx + (episode.car.heading()[0] - hx) * alpha,
-                                                              hy + (episode.car.heading()[1] - hy) * alpha)
+        heading = (hx + (hx2 - hx) * alpha, hy + (hy2 - hy) * alpha)
 
         screen.fill((236, 234, 228))
         if view_mode == "conducteur":
             driver_view.draw(screen, episode, images, position, heading)
-            minimap.draw(screen, episode, position, heading)
+            views["minimap"].draw(screen, episode, position, heading)
         else:
-            map_view.draw(screen, episode, config.start, config.goal)
-        camera.draw(screen, episode.last_detection)
-        hud.draw(screen, episode, paused, steps_per_second)
+            views["map"].draw(screen, episode, config.start, config.goal)
+        views["camera"].draw(screen, episode.last_detection)
+        views["hud"].draw(screen, episode, paused, time_factor)
         pygame.display.flip()
 
         if args.screenshot:
@@ -187,13 +205,29 @@ def run(args: argparse.Namespace) -> Path | None:
             return out
 
 
+def default_window_size() -> tuple[int, int]:
+    """90 % de l'écran, entre 1100 × 700 et 1920 × 1080 (1280 × 800 si l'écran est inconnu)."""
+    import pygame
+
+    info = pygame.display.Info()
+    if not info.current_w or not info.current_h or info.current_w < 0:
+        return 1280, 800
+    return min(max(int(info.current_w * 0.9), 1100), 1920), min(max(int(info.current_h * 0.85), 700), 1080)
+
+
+def _size(text: str) -> tuple[int, int]:
+    width, height = text.lower().split("x")
+    return int(width), int(height)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--classifier", default="simulation", help="simulation, reference ou ours (équipe B)")
     parser.add_argument("--seed", type=int, default=SimConfig.seed)
     parser.add_argument("--episode", type=int, default=0)
-    parser.add_argument("--speed", type=float, default=10.0, help="pas simulés par seconde")
+    parser.add_argument("--time-factor", type=float, default=1.0, help="1 = temps réel, 2 = deux fois plus vite (↑/↓)")
     parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument("--size", type=_size, help="taille de la fenêtre, par exemple 1600x900 (défaut : selon l'écran)")
     parser.add_argument("--view", choices=("conducteur", "carte"), default="conducteur", help="vue au démarrage (touche V)")
     parser.add_argument("--screenshot", help="enregistre une image au lieu d'ouvrir la fenêtre")
     parser.add_argument("--steps", type=int, default=150, help="pas simulés avant la capture")
