@@ -5,23 +5,28 @@ description: Récupérer, trier, convertir, normaliser et créditer les assets 3
 
 # Pipeline d'assets 3D : Kenney et Quaternius
 
-## Sources retenues
+## Packs de l'équipe (31 octobre 2026)
 
-Licences et formats relevés le 31 octobre 2026. **Relire la licence incluse dans chaque zip au téléchargement.**
+Formats et licences relevés sur les pages officielles. **Relire la licence incluse dans chaque zip au téléchargement.**
 
-| Besoin | Pack | Formats | Licence |
-| --- | --- | --- | --- |
-| Voitures, bus, camions, taxi, police… | Kenney **Car Kit** (kenney.nl/assets/car-kit) | OBJ, FBX, **glTF** | CC0 |
-| Routes, carrefours, **panneaux et feux** (depuis la v2.1) | Kenney **City Kit (Roads)** | OBJ, FBX, DAE, STL, **glTF** | CC0 |
-| Bâtiments, décor urbain | Kenney **City Kit (Commercial)** et **(Suburban)** | dont **glTF** | CC0 |
-| Ville modulaire plus détaillée | Quaternius **Downtown City MegaKit** | OBJ, FBX, **glTF** | usage libre, y compris éducatif : vérifier le fichier de licence |
-| Voitures supplémentaires | Quaternius **Lowpoly Cars** | FBX, OBJ, Blend (**pas de glTF**) | CC0 (le SUV de police est réservé aux abonnés Patreon) |
-| Bus, taxis, ambulances | Quaternius **Lowpoly Public Transport** | Blend, OBJ, FBX | CC0 |
-| Personnes animées, vélos, motos | Rechercher sur kenney.nl/assets (filtre 3D) et quaternius.com (packs de personnages) | à vérifier | à vérifier |
+| Pack | Sert à | Formats | Licence | Dossier |
+| --- | --- | --- | --- | --- |
+| Kenney **City Kit (Roads)** v2.1 | Tronçons de route, carrefours, **panneaux et feux** | OBJ, FBX, DAE, STL, **glTF** | CC0 | `kenney/city-kit-roads/` |
+| Quaternius **Lowpoly Cars** | Voiture de l'ego, obstacles `car`, trafic d'ambiance | FBX, OBJ, Blend (**pas de glTF**) | CC0 | `quaternius/lowpoly-cars/` |
+| Quaternius **Lowpoly Public Transport** | Obstacles `bus` (et taxis, ambulances pour le trafic) | Blend, OBJ, FBX (**pas de glTF**) | CC0 | `quaternius/public-transport/` |
+| Quaternius **Universal Base Characters** | Obstacles `person` | OBJ, FBX, **glTF** ; squelette humanoïde | CC0 | `quaternius/universal-base-characters/` |
 
-Les packs vélo, moto et personnage ne sont pas encore identifiés avec certitude. Vérifier sur les sites avant de les
-citer, et ne jamais inventer un nom de pack ni une licence. S'il en manque un, le signaler à l'utilisateur
-plutôt que de le remplacer en silence.
+Ce qui manque, à signaler à l'utilisateur plutôt que de le combler en silence :
+- **`bicycle`, `motorcycle`** : aucun des 4 packs n'en contient a priori (à confirmer en ouvrant les zips).
+- **`truck`** : à chercher dans Lowpoly Cars et Public Transport. Ne pas étiqueter « camion » un modèle qui n'en est pas un.
+- **Animations des personnages** : Universal Base Characters ne fournit que le personnage et son squelette. La marche
+  vient du pack séparé Quaternius **Universal Animation Library** (CC0, glTF), prévu pour ce squelette. Sans lui,
+  les personnes restent immobiles, ce qui suffit pour la démo.
+- Sur un autre projet du PC (`CateGo/assets/`), il existe un pack Kenney **Mini Characters**. On ne le réutilise
+  qu'avec l'accord de l'utilisateur.
+
+Pistes si l'utilisateur veut compléter : Kenney **Car Kit** (glTF, CC0), Kenney **City Kit (Commercial / Suburban)** pour
+les bâtiments, Quaternius **Downtown City MegaKit** (glTF). Ne jamais inventer un nom de pack ni une licence.
 
 Télécharger depuis la page officielle (kenney.nl, quaternius.com, ou leurs pages itch.io), jamais depuis un miroir.
 Les liens de téléchargement de Kenney changent : partir de la page du pack.
@@ -47,11 +52,13 @@ simulator/assets/3d/
 ## Conversion
 
 1. **glTF disponible** (Kenney, Downtown MegaKit) : le garder tel quel. Panda3D le charge et le convertit en Z-up.
-2. **FBX ou OBJ seulement** (Quaternius Lowpoly Cars) :
-   - si Blender est installé : `blender -b --python-expr "..."` pour importer le fichier puis exporter en
-     `.glb` (`bpy.ops.export_scene.gltf(filepath=..., export_format="GLB")`) ;
-   - sinon : Panda3D charge OBJ et FBX via `p3assimp` sans changer d'axe. Corriger l'orientation dans
-     `catalog.json` (`pitch: 90`), pas en modifiant le fichier.
+2. **FBX ou OBJ seulement** (Lowpoly Cars, Public Transport) :
+   - **Blender n'est pas installé sur le PC** (vérifié le 31 octobre 2026). Par défaut, Panda3D charge donc l'OBJ
+     ou le FBX via `p3assimp`, sans changer d'axe. L'orientation (`pitch: 90` si le modèle est couché) se
+     corrige dans `catalog.json`, pas dans le fichier. Préférer l'OBJ (+ .mtl) au FBX : c'est plus prévisible,
+     et les FBX sont souvent en centimètres. L'échelle est de toute façon recalculée à partir de la taille mesurée.
+   - si l'utilisateur installe Blender : `blender -b --python-expr "..."` pour importer le fichier puis exporter en
+     `.glb` (`bpy.ops.export_scene.gltf(filepath=..., export_format="GLB")`). On ne commite alors que le `.glb`.
 3. Ne jamais modifier un fichier source à la main : toute correction (échelle, cap, hauteur) va dans `catalog.json`.
 
 ## catalog.json : la « blueprint library »

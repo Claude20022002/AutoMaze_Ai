@@ -120,6 +120,9 @@ model = base.loader.loadModel(Filename.fromOsSpecific(str(path)))  # chemin Wind
 - Cache : `model.writeBamFile(...)`, puis rechargement en .bam, beaucoup plus rapide. Les .bam vont dans un dossier ignoré par Git.
 - Animations des personnages glTF : `from direct.actor.Actor import Actor` avec `Actor(path)`, puis
   `actor.getAnimNames()` et `actor.loop("Walk")`. Les noms dépendent du pack : toujours les lister d'abord.
+  Animations dans un fichier séparé (Quaternius Universal Animation Library pour Universal Base Characters) :
+  `Actor(personnage, {"Walk": fichier_animations})` ne fonctionne que si les noms des os sont identiques
+  dans les deux fichiers (à vérifier, non testé).
 
 ## Rendu PBR (testé)
 
