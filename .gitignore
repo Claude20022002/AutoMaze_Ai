@@ -226,6 +226,8 @@ models/*.pt
 models/*.pth
 reports/verification_*.txt
 reports/simulator/
+# Captures locales du simulateur (`--screenshot capture.png`)
+/capture.png
 # Simulateur 3D : téléchargements bruts et fichiers non redistribuables (Mixamo)
 simulator/assets/3d/_downloads/
 simulator/assets/3d/_local/
