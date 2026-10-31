@@ -27,7 +27,7 @@ from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 
 from simulator.render3d.catalog import ASSETS_3D
 
-MESH_VERSION = 1                 # à incrémenter quand la géométrie change : invalide le cache
+MESH_VERSION = 2                 # à incrémenter quand la géométrie change : invalide le cache
 CACHE_DIR = ASSETS_3D / "_cache"
 TILE_M = 200.0                   # côté d'une tuile (une tuile = un nœud aplati = peu d'appels de dessin)
 LANE_WIDTH_M = 3.2
@@ -336,16 +336,21 @@ def build_world(graph: nx.MultiDiGraph, frame: WorldFrame, loader, catalog=None,
     street_list = streets(graph, frame)
     layout = road_layout(street_list)
     extent = shapely.union_all([layout.roads, layout.sidewalks]).envelope.buffer(150, join_style="mitre")
-    ground = _flat("sol", extent, 0.0, GROUND_COLOR)
-    world.attachNewNode(ground)
+    ground = world.attachNewNode(_flat("sol", extent, 0.0, GROUND_COLOR))
+    # Sol dessiné en premier, sans écrire la profondeur : la chaussée, quelques centimètres au-dessus,
+    # ne scintille jamais avec lui, même vue de loin (précision du tampon de profondeur).
+    ground.setBin("background", 0)
+    ground.setDepthWrite(False)
 
     footprints: dict[tuple[int, int], tuple[list[Polygon], list[float]]] = {}
     if buildings is not None:
         polys, heights = buildings
-        for i, (poly, height) in enumerate(zip(polys, heights)):
+        keep_out = layout.roads.buffer(0.5)             # un bâtiment OSM qui empiète sur la chaussée est rogné
+        shapely.prepare(keep_out)
+        for poly, height in zip(polys, heights):
             local = frame.geometry(poly)
-            if local.intersects(layout.roads):          # bâtiment OSM qui empiète sur la chaussée : on le retire
-                local = local.difference(layout.roads.buffer(0.5))
+            if keep_out.intersects(local):
+                local = local.difference(keep_out)
             for part in _polygons(local):
                 if part.area < 12:
                     continue
@@ -364,7 +369,9 @@ def build_world(graph: nx.MultiDiGraph, frame: WorldFrame, loader, catalog=None,
                                       ("trottoir", side_tiles, SIDEWALK_Z, SIDEWALK_COLOR),
                                       ("marquage", mark_tiles, MARKING_Z, MARKING_COLOR)):
             if key in parts and (node := _flat(name, parts[key], z, color)) is not None:
-                tile.attachNewNode(node)
+                part = tile.attachNewNode(node)
+                if name == "marquage":
+                    part.setDepthOffset(2)      # posé sur la chaussée : toujours devant elle
         if key in footprints and (node := _buildings_node(*footprints[key])) is not None:
             tile.attachNewNode(node)
         tile.flattenStrong()
