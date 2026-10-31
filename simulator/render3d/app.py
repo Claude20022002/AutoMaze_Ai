@@ -3,6 +3,7 @@
     python -m simulator.render3d.app                                  # classifieur « simulation »
     python -m simulator.render3d.app --classifier ours --episode 3    # notre CNN, épisode n° 3
     python -m simulator.render3d.app --view conducteur                # poste de conduite et tableau de bord
+    python -m simulator.render3d.app --traffic 0 --pedestrians 0      # sans trafic d'ambiance
     python -m simulator.render3d.app --screenshot capture.png         # image après 60 pas, sans fenêtre
 
 Commandes : Espace pause · → pas à pas · ↑/↓ vitesse · V vue (poursuite, conducteur, dessus) ·

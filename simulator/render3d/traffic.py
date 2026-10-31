@@ -229,9 +229,12 @@ class TrafficSim:
             edge = self.edges[int(self.rng.choice(candidates, p=weights / weights.sum()))]
             kind = self._kinds[int(self.rng.choice(len(self._kinds), p=self._kind_p))]
             length, v0, _ = VEHICLE_TYPES[kind]
-            if self.length[edge] < length + 2.0:                # tronçon trop court pour ce véhicule
+            # Ni sur le carrefour d'où part le tronçon, ni à moins de 15 m du suivant : un véhicule qui apparaît
+            # lancé doit avoir la place de freiner avant un carrefour réservé ou un feu rouge.
+            low, high = length + 3.0, self.length[edge] - 15.0
+            if high <= low:
                 continue
-            s = float(self.rng.uniform(length, self.length[edge]))
+            s = float(self.rng.uniform(low, high))
             if all(o.edge != edge or abs(o.s - s) > 14 for o in self.vehicles):
                 vehicle = Vehicle(self._new_id(), kind, length, v0 * float(self.rng.uniform(0.85, 1.1)), edge, s,
                                   v0 * 0.6, variant=int(self.rng.integers(1000)))

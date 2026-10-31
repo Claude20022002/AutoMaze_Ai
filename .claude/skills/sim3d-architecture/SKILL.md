@@ -71,6 +71,8 @@ simulator/
 │   ├── dashboard.py          tableau de bord conducteur : compteur, état de conduite, objet devant, itinéraire
 │   ├── minimap.py            minicarte : seconde caméra orthographique, orientée dans le sens de marche
 │   ├── masks.py              masques de caméra : vue principale, minicarte, carte d'ombre
+│   ├── traffic.py            trafic d'ambiance en Python pur : IDM, carrefours, feux, piétons, bulle autour de l'ego
+│   ├── traffic_view.py       affichage du trafic : véhicules, foule (réserve de personnages animés), feux
 │   ├── catalog.py            catalogue des modèles et normalisation (skill asset-pipeline)
 │   ├── build_assets.py       production des .glb depuis les téléchargements
 │   ├── blender_to_glb.py     script exécuté par Blender
@@ -81,7 +83,28 @@ tests/simulator/render3d/     catalogue, géométrie pure, vraie carte, capture 
 ```
 
 Pas encore faits : capteur caméra RGB 3D et recadrage (mode `--perception render`, recettes dans
-`panda3d-recipes`), trafic d'ambiance, réglages d'heure et de météo, parcs OSM (`leisure=park`).
+`panda3d-recipes`), réglages d'heure et de météo, parcs OSM (`leisure=park`), changements de voie.
+
+## Trafic d'ambiance (décision du 31 octobre 2026 : décor, sans effet sur les épisodes)
+
+- `traffic.TrafficSim` est indépendant d'`engine.py` : mêmes épisodes, mêmes journaux, mêmes métriques avec ou sans
+  trafic (testé). Il lit l'ego avec `ego_state(episode, longueur)` et ne modifie jamais l'épisode.
+- Le moteur ignore le trafic, donc **le trafic s'adapte à l'ego** :
+  - aucun véhicule ne s'engage sur l'itinéraire de l'ego (300 m, même sens) ni sur un tronçon d'obstacle ;
+  - l'ego réserve les carrefours qu'il atteint dans les 45 m, et un feu passe au vert pour lui à 75 m ;
+  - après un recalcul d'itinéraire, un véhicule à moins de 150 m devant l'ego est replacé ailleurs ;
+  - la longueur de l'ego est majorée d'un pas du moteur (8 m) car l'ego affiché est interpolé, donc en retard.
+- Modèles : IDM pour le suivi (`IDM_*`), réservation des carrefours tenue jusqu'au dégagement (anti-blocage après
+  24 s d'attente), feux à deux groupes d'approches (18 s de vert, 3 s d'orange, 2 s de rouge intégral ; phase
+  piétons s'il n'y a qu'un axe), piétons sur les trottoirs qui traversent aux nœuds `crossing` (les véhicules
+  s'arrêtent).
+- Bulle de 200 m autour de l'ego. On réapparaît hors de vue : derrière l'ego dès 25 m, devant à 110 m au moins,
+  jamais à moins de 15 m d'un carrefour.
+- Affichage : véhicules du catalogue (matériaux convertis en couleurs de sommets, 2 maillages par véhicule),
+  positions numpy (`EdgePaths`), pas d'ombre au-delà de 60 m, rien au-delà de 180 m. Foule : 12 personnages animés
+  (squelette sur GPU, `hardware-animated-vertices`) attribués aux piétons à moins de 60 m, silhouettes low-poly
+  au-delà. Les feux statiques ont été retirés de la ville : ils sont dynamiques (`traffic_view.signal_head`).
+- Options : `--traffic 80` véhicules, `--pedestrians 40` piétons (0 = aucun).
 
 ## Mise en page et interface
 
@@ -138,8 +161,11 @@ Touches : Espace pause · → pas à pas · ↑/↓ vitesse · V vue (poursuite,
 - Environ 30 s de construction de la ville au premier lancement, puis 5 s avec le cache .bam (environ 85 Mo,
   textures comprises). Cache invalidé par le hash de la carte, des bâtiments et `world_mesh.MESH_VERSION`, à
   incrémenter à chaque changement de géométrie, de couleur ou de texture.
-- Environ 85 images/s en vue poursuite, 75 en vue conducteur, 150 vue de dessus. Éclairage par pixel
-  (`setShaderAuto`), ombres 2048 px sur 180 m autour de la voiture. `--no-shadows` si la machine est plus faible.
+- Sans trafic : environ 85 images/s en poursuite, 75 en conducteur, 150 de dessus.
+- Avec 80 véhicules et 40 piétons : environ 70 en poursuite, 55 en conducteur, 90 de dessus. La minicarte coûte
+  environ 10 images/s, puisqu'elle redessine la ville. Simulation du trafic : environ 0,3 ms par pas de 0,1 s.
+- Pièges mesurés : 50 personnages animés par le processeur font tomber à 8 images/s (d'où la réserve de 12
+  personnages sur GPU) ; les glTF portent un `TextureAttrib` vide qui empêche de fusionner les matériaux.
 - Les objets mobiles (`dynamique`) gardent l'éclairage classique (`setShaderOff`) : l'ombrage par pixel faisait des
   rayures (« shadow acne ») sur leurs petites facettes. Ils projettent quand même leur ombre.
 

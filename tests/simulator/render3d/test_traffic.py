@@ -178,4 +178,4 @@ def test_traffic_does_not_change_the_episode_and_stays_clear_of_the_ego(city):
                 overlaps |= {(a.vid, b.vid) for a, b in zip(vs, vs[1:]) if b.s - b.length - a.s < -0.5}
     assert episode.result.status == plain.status and episode.step_count == plain.steps
     assert [e.step for e in episode.result.encounters] == [e.step for e in plain.encounters]
-    assert len(overlaps) <= 2                                   # tolérance : anti-blocage aux carrefours
+    assert not overlaps                                         # aucun véhicule ne se superpose à un autre
