@@ -15,18 +15,53 @@ Formats et licences relevés sur les pages officielles. **Relire la licence incl
 | Quaternius **Lowpoly Cars** | Voiture de l'ego, obstacles `car`, trafic d'ambiance | FBX, OBJ, Blend (**pas de glTF**) | CC0 | `quaternius/lowpoly-cars/` |
 | Quaternius **Lowpoly Public Transport** | Obstacles `bus` (et taxis, ambulances pour le trafic) | Blend, OBJ, FBX (**pas de glTF**) | CC0 | `quaternius/public-transport/` |
 | Quaternius **Universal Base Characters** | Obstacles `person` | OBJ, FBX, **glTF** ; squelette humanoïde | CC0 | `quaternius/universal-base-characters/` |
+| **Poly Pizza** (poly.pizza), modèle par modèle | Obstacles `bicycle`, `motorcycle`, `truck` | **.glb** | **CC0 ou CC-BY, selon le modèle** | `polypizza/<classe>/` |
+| **Sketchfab**, modèle par modèle | `bicycle`, `motorcycle` si Poly Pizza ne suffit pas | glTF (export automatique) + format d'origine | **variable selon le modèle** | `sketchfab/<classe>/` |
+| **Mixamo** (Adobe) | Animations des personnes (marche, attente) | FBX | conditions Adobe (ci-dessous) | **jamais dans Git** : `_local/mixamo/` |
 
-Ce qui manque, à signaler à l'utilisateur plutôt que de le combler en silence :
-- **`bicycle`, `motorcycle`** : aucun des 4 packs n'en contient a priori (à confirmer en ouvrant les zips).
-- **`truck`** : à chercher dans Lowpoly Cars et Public Transport. Ne pas étiqueter « camion » un modèle qui n'en est pas un.
-- **Animations des personnages** : Universal Base Characters ne fournit que le personnage et son squelette. La marche
-  vient du pack séparé Quaternius **Universal Animation Library** (CC0, glTF), prévu pour ce squelette. Sans lui,
-  les personnes restent immobiles, ce qui suffit pour la démo.
-- Sur un autre projet du PC (`CateGo/assets/`), il existe un pack Kenney **Mini Characters**. On ne le réutilise
-  qu'avec l'accord de l'utilisateur.
+### Modèles pris un par un (Poly Pizza, Sketchfab)
 
-Pistes si l'utilisateur veut compléter : Kenney **Car Kit** (glTF, CC0), Kenney **City Kit (Commercial / Suburban)** pour
-les bâtiments, Quaternius **Downtown City MegaKit** (glTF). Ne jamais inventer un nom de pack ni une licence.
+- **Lire la licence de chaque modèle** sur sa page avant de le télécharger, puis la recopier dans `catalog.json` et
+  dans `CREDITS.md`, avec le titre, l'auteur et l'URL de la page.
+- Ordre de préférence :
+  1. **CC0** ;
+  2. **CC-BY**, avec crédit obligatoire : titre, auteur, lien et licence ;
+  3. **CC-BY-SA**, seulement si l'utilisateur l'accepte, car la licence s'étend aux modifications.
+- **À refuser** :
+  - les licences **NC** et **ND**, sauf accord explicite de l'utilisateur, qui doit être noté ;
+  - la **licence Standard ou Editorial du Sketchfab Store** (modèles payants).
+- Sur Poly Pizza, la plupart des modèles viennent de l'ancien Google Poly : beaucoup sont en CC-BY.
+  Sketchfab demande un compte pour télécharger, et la fenêtre de téléchargement donne le texte de crédit à recopier.
+- Choisir des modèles **low-poly** (moins de 20 000 triangles) dont le style colle à Kenney et Quaternius.
+  Un vélo très détaillé au milieu de voitures en blocs choque, et coûte cher sur le GPU intégré.
+- Un modèle par classe suffit pour commencer. On en ajoute ensuite 2 ou 3 par classe, pour la variété.
+
+### Mixamo (animations des personnes)
+
+- Conditions relevées dans la FAQ Mixamo (communauté Adobe, rédigée en 2022, à revérifier) :
+  - l'usage est libre dans un projet, y compris un jeu ;
+  - **interdit de redistribuer les fichiers bruts** (personnage ou animation) ;
+  - **interdit pour entraîner un modèle d'apprentissage automatique** ;
+  - aucun crédit n'est exigé.
+- Conséquences pour le dépôt :
+  - les FBX Mixamo et tout fichier qui en dérive (.glb fusionné, .bam) vont dans `simulator/assets/3d/_local/`,
+    **ignoré par Git**. Chaque membre de l'équipe les télécharge lui-même ;
+  - on ne commite qu'une note de procédure ;
+  - ces animations ne servent qu'à l'affichage, jamais aux données des notebooks.
+- Procédure :
+  1. Exporter un personnage d'Universal Base Characters en FBX.
+  2. L'envoyer sur mixamo.com et le laisser s'aligner sur son squelette (auto-rigger).
+  3. Télécharger « Walking » et « Idle » en FBX **avec skin**, en mode **In Place** pour que le simulateur garde
+     le contrôle du déplacement.
+  4. Dans Blender, fusionner les animations en actions d'un même `.glb`.
+  5. Le charger avec `Actor(chemin)` dans Panda3D, puis vérifier `getAnimNames()`.
+  Cette procédure n'est pas encore testée.
+- L'application doit **marcher sans ces fichiers**. S'ils manquent, afficher les personnes immobiles, sans erreur.
+- Alternative sans compte Adobe : Quaternius **Universal Animation Library** (CC0, glTF), conçue pour le
+  squelette d'Universal Base Characters. Ces fichiers-là peuvent être commités.
+
+Ne jamais inventer un nom de pack, d'auteur ni de licence. Sur un autre projet du PC (`CateGo/assets/`), il existe un pack
+Kenney **Mini Characters** : on ne le réutilise qu'avec l'accord de l'utilisateur.
 
 Télécharger depuis la page officielle (kenney.nl, quaternius.com, ou leurs pages itch.io), jamais depuis un miroir.
 Les liens de téléchargement de Kenney changent : partir de la page du pack.
@@ -35,12 +70,16 @@ Les liens de téléchargement de Kenney changent : partir de la page du pack.
 
 ```text
 simulator/assets/3d/
-├── _downloads/                zips et dossiers extraits : IGNORÉ PAR GIT (ajouter au .gitignore)
-├── kenney/car-kit/            uniquement les modèles retenus (.glb ou .gltf avec leurs textures)
-├── kenney/city-kit-roads/
-├── quaternius/<pack>/
-├── catalog.json               classe ou rôle -> modèles, échelle, orientation
-└── CREDITS.md                 un bloc par pack : nom, auteur, URL, licence, version, date
+├── _downloads/                zips et sources extraites : IGNORÉ PAR GIT (ajouter au .gitignore)
+├── _local/                    fichiers non redistribuables (Mixamo) : IGNORÉ PAR GIT
+├── kenney/city-kit-roads/     uniquement les modèles retenus (.glb, ou .gltf avec ses textures)
+├── quaternius/lowpoly-cars/   .glb convertis par Blender
+├── quaternius/public-transport/
+├── quaternius/universal-base-characters/
+├── polypizza/<classe>/        un .glb par modèle retenu
+├── sketchfab/<classe>/
+├── catalog.json               classe ou rôle -> modèles, échelle, orientation, licence
+└── CREDITS.md                 packs : nom, auteur, URL, licence, date ; modèles isolés : titre, auteur, URL, licence
 ```
 
 - Ne commiter que les modèles utilisés : quelques dizaines de Ko chacun. Jamais les zips, jamais les .bam de cache.
@@ -52,13 +91,19 @@ simulator/assets/3d/
 ## Conversion
 
 1. **glTF disponible** (Kenney, Downtown MegaKit) : le garder tel quel. Panda3D le charge et le convertit en Z-up.
-2. **FBX ou OBJ seulement** (Lowpoly Cars, Public Transport) :
-   - **Blender n'est pas installé sur le PC** (vérifié le 31 octobre 2026). Par défaut, Panda3D charge donc l'OBJ
-     ou le FBX via `p3assimp`, sans changer d'axe. L'orientation (`pitch: 90` si le modèle est couché) se
-     corrige dans `catalog.json`, pas dans le fichier. Préférer l'OBJ (+ .mtl) au FBX : c'est plus prévisible,
-     et les FBX sont souvent en centimètres. L'échelle est de toute façon recalculée à partir de la taille mesurée.
-   - si l'utilisateur installe Blender : `blender -b --python-expr "..."` pour importer le fichier puis exporter en
-     `.glb` (`bpy.ops.export_scene.gltf(filepath=..., export_format="GLB")`). On ne commite alors que le `.glb`.
+2. **FBX ou OBJ seulement** (Lowpoly Cars, Public Transport, certains modèles Sketchfab) : **convertir en .glb avec
+   Blender 5.2**, installé dans `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`. Le script
+   [scripts/to_glb.py](scripts/to_glb.py) a été testé :
+
+   ```powershell
+   & "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup `
+       -P .claude/skills/asset-pipeline/scripts/to_glb.py -- <entree.fbx|obj> simulator/assets/3d/<source>/<pack>/<nom>.glb
+   ```
+
+   Test du 31 octobre 2026 : un OBJ Y-up chargé directement par Panda3D apparaît **couché** (sa longueur part vers Z),
+   alors que le .glb converti est à l'endroit (longueur selon Y, hauteur selon Z). On ne commite que le `.glb`,
+   jamais la source FBX ou OBJ. L'échelle est recalculée au chargement à partir de la taille mesurée : un FBX en
+   centimètres ne pose donc pas de problème.
 3. Ne jamais modifier un fichier source à la main : toute correction (échelle, cap, hauteur) va dans `catalog.json`.
 
 ## catalog.json : la « blueprint library »
@@ -66,12 +111,15 @@ simulator/assets/3d/
 ```json
 {
   "obstacles": {
-    "car":        [{"model": "kenney/car-kit/sedan.glb", "length_m": 4.5, "heading": 0}],
-    "bus":        [{"model": "...", "length_m": 12.0}],
-    "truck":      [{"model": "...", "length_m": 9.0}],
-    "motorcycle": [{"model": "...", "length_m": 2.1}],
-    "bicycle":    [{"model": "...", "length_m": 1.8}],
-    "person":     [{"model": "...", "height_m": 1.75, "animation": "Walk"}]
+    "car":        [{"model": "quaternius/lowpoly-cars/<voiture>.glb", "length_m": 4.5, "heading": 0,
+                    "license": "CC0", "source": "Quaternius, Lowpoly Cars"}],
+    "bus":        [{"model": "quaternius/public-transport/<bus>.glb", "length_m": 12.0, "license": "CC0"}],
+    "truck":      [{"model": "polypizza/truck/<nom>.glb", "length_m": 9.0,
+                    "license": "CC-BY 3.0", "author": "<auteur>", "url": "https://poly.pizza/m/<id>"}],
+    "motorcycle": [{"model": "polypizza/motorcycle/<nom>.glb", "length_m": 2.1, "license": "...", "author": "...", "url": "..."}],
+    "bicycle":    [{"model": "sketchfab/bicycle/<nom>.glb", "length_m": 1.8, "license": "...", "author": "...", "url": "..."}],
+    "person":     [{"model": "quaternius/universal-base-characters/<perso>.glb", "height_m": 1.75,
+                    "license": "CC0", "animations": "_local/mixamo/<perso>_anims.glb"}]
   },
   "ego": {"model": "...", "length_m": 4.3},
   "traffic": [{"model": "...", "length_m": 4.4}],
@@ -83,7 +131,10 @@ simulator/assets/3d/
 }
 ```
 
-- Les noms de fichiers ci-dessus sont des **exemples** : les remplacer par les vrais noms après téléchargement.
+- Les noms entre `< >` sont des **exemples** : les remplacer par les vrais noms après téléchargement.
+- Chaque modèle qui n'est pas en CC0 porte `license`, `author` et `url`. Un test vérifie que ces champs sont
+  présents et que `CREDITS.md` mentionne chaque `url`.
+- `animations` peut pointer vers `_local/` : si le fichier est absent, le personnage reste immobile, sans erreur.
 - Normaliser au chargement (`render3d/catalog.py`) :
   - échelle = taille réelle / plus grande dimension mesurée avec `getTightBounds()` ;
   - origine au centre de la base (z = 0 au sol) ;
