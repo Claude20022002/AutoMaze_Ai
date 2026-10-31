@@ -30,6 +30,9 @@ def download_map(path: Path = MAP_FILE, bbox: tuple[float, float, float, float] 
     """Télécharge le réseau routier carrossable de la zone et l'enregistre en GraphML."""
     import osmnx as ox
 
+    from simulator.config import ROOT
+
+    ox.settings.cache_folder = ROOT / "data" / "osm_cache"  # réponses Overpass en cache, hors Git
     last_error: Exception | None = None
     for url in OVERPASS_SERVERS:
         ox.settings.overpass_url = url

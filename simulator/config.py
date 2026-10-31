@@ -47,15 +47,23 @@ class SimConfig:
     start: str = "Twin Center (Maârif)"             # clé de LANDMARKS
     goal: str = "Place Mohammed V (centre-ville)"   # clé de LANDMARKS
     n_obstacles: int = 6
-    sensor_range_m: float = 80.0         # distance vue devant la voiture, le long de l'itinéraire
-    car_speed_mps: float = 10.0          # environ 36 km/h
+    sensor_range_m: float = 35.0         # distance de détection devant la voiture (caméra en ville, 29 km/h)
+    car_speed_mps: float = 8.0           # environ 29 km/h, vitesse de circulation en ville
     step_seconds: float = 1.0            # durée simulée d'un pas
     max_steps: int = 2000                # au-delà, l'épisode se termine avec le statut « bloqué »
 
-    # Effets des actions sur la recherche de chemin (équipe A)
-    wait_steps: int = 5                  # STOP_WAIT : nombre de pas où le tronçon reste bloqué
-    slow_factor: float = 3.0             # SLOW_DOWN : coût du tronçon multiplié (vitesse divisée d'autant)
+    # Effets des actions (équipe A)
+    wait_steps: int = 5                  # STOP_WAIT : nombre de pas d'attente avant de repartir
+    cautious_wait_steps: int = 2         # CAUTIOUS_STOP : attente avant de contourner
+    slow_factor: float = 3.0             # SLOW_DOWN : coût du tronçon multiplié, vitesse divisée d'autant
     wide_penalty: float = 10.0           # REROUTE_WIDE : pénalité des tronçons voisins de l'obstacle
+    patience_steps: int = 30             # sans aucun chemin pendant ce nombre de pas : épisode « bloqué »
+
+    # Comportement réel des obstacles, selon leur VRAIE classe : nombre de pas avant qu'ils libèrent
+    # la voie (None = immobile). Une mauvaise classification peut donc mener à une collision.
+    clear_steps: dict[str, int | None] = field(default_factory=lambda: {
+        "person": 4, "bicycle": 3, "motorcycle": 2, "car": None, "bus": None, "truck": None,
+    })
 
     # Perception (équipe B)
     confidence_threshold: float = 0.5    # sous ce score, le label devient UNKNOWN ; à régler sur la validation

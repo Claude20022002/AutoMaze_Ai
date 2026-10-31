@@ -14,3 +14,4 @@ jupyter
 # Simulateur (local uniquement : pygame ouvre une fenêtre, impossible sur Colab)
 pygame>=2.5
 pytest>=8.0
+osmnx>=2.0          # carte OpenStreetMap (installe aussi networkx et geopandas)
