@@ -12,7 +12,8 @@ Modèles :
 - suivi du véhicule de devant : Intelligent Driver Model (IDM, Treiber et al., 2000) ;
 - carrefours sans feu : réservation par le premier arrivé, avec délai maximal (pas de blocage) ;
 - feux : deux groupes d'approches (axes perpendiculaires) en alternance vert, orange, rouge intégral ;
-- « bulle » autour de l'ego : au-delà de ``radius_m``, un véhicule ou un piéton réapparaît plus près, hors de vue.
+- « bulle » autour de l'ego : au-delà de ``radius_m``, un véhicule ou un piéton réapparaît plus près, hors de vue
+  (derrière l'ego, ou loin devant), de préférence sur un tronçon proche.
 
 Tout est en Python pur et déterministe pour une graine donnée : testable sans affichage.
 """
@@ -44,7 +45,8 @@ MAX_WAIT_S = 8.0               # au-delà, un véhicule passe quand même (évit
 STOP_BEFORE_NODE_M = 5.0       # ligne d'arrêt avant un carrefour (feu ou cédez-le-passage)
 EGO_RESERVE_M = 45.0           # l'ego réserve les carrefours qu'il atteindra dans cette distance
 EGO_ROUTE_HORIZON_M = 300.0    # le trafic évite l'itinéraire de l'ego sur cette distance
-SPAWN_MIN_M = 90.0             # distance minimale à l'ego pour réapparaître (souvent caché par les bâtiments)
+SPAWN_AHEAD_M = 110.0          # devant l'ego, distance minimale pour apparaître (sinon on le verrait surgir)
+SPAWN_BEHIND_M = 25.0          # derrière l'ego (hors du champ de la caméra), on peut apparaître bien plus près
 
 GREEN_S, YELLOW_S, ALL_RED_S = 18.0, 3.0, 2.0
 PEDESTRIAN_PHASE_S = 12.0
@@ -65,6 +67,7 @@ class EgoState:
     xy: tuple[float, float]
     upcoming: list[tuple[EdgeKey, float]]   # (tronçon, distance depuis l'ego jusqu'au début du tronçon)
     prev_edge: EdgeKey | None = None        # tronçon précédent : l'arrière de l'ego peut encore s'y trouver
+    heading: tuple[float, float] = (0.0, 1.0)   # direction de marche (pour apparaître hors du champ de la caméra)
 
 
 @dataclass
@@ -167,8 +170,8 @@ def build_signals(graph: nx.MultiDiGraph) -> dict[int, SignalController]:
 
 
 class TrafficSim:
-    def __init__(self, graph: nx.MultiDiGraph, seed: int = 7, n_vehicles: int = 80, n_pedestrians: int = 50,
-                 radius_m: float = 250.0, blocked_edges: set[EdgeKey] | None = None) -> None:
+    def __init__(self, graph: nx.MultiDiGraph, seed: int = 7, n_vehicles: int = 80, n_pedestrians: int = 40,
+                 radius_m: float = 200.0, blocked_edges: set[EdgeKey] | None = None) -> None:
         from simulator.render3d.world_mesh import road_width
 
         self.graph, self.radius_m = graph, radius_m
@@ -199,8 +202,19 @@ class TrafficSim:
 
     # ------------------------------------------------------------------ apparition
     def _candidate_edges(self, center: tuple[float, float], min_m: float, max_m: float) -> np.ndarray:
-        d = np.hypot(self.edge_mid[:, 0] - center[0], self.edge_mid[:, 1] - center[1])
-        return np.flatnonzero((d >= min_m) & (d <= max_m))
+        """Tronçons à moins de ``max_m`` : au moins ``min_m`` devant l'ego, ``SPAWN_BEHIND_M`` derrière lui."""
+        rel = self.edge_mid - np.asarray(center)
+        d = np.hypot(rel[:, 0], rel[:, 1])
+        if self.ego is None:
+            return np.flatnonzero((d >= min_m) & (d <= max_m))
+        hx, hy = self.ego.heading
+        behind = rel[:, 0] * hx + rel[:, 1] * hy < -0.5 * d
+        near_enough = np.where(behind, d >= min(min_m, SPAWN_BEHIND_M), d >= min_m)
+        return np.flatnonzero(near_enough & (d <= max_m))
+
+    def _proximity(self, indices, center) -> np.ndarray:
+        d = np.hypot(self.edge_mid[indices, 0] - center[0], self.edge_mid[indices, 1] - center[1])
+        return 1.0 / (1.0 + d / 80.0)
 
     def _allowed(self, edge: EdgeKey) -> bool:
         return edge not in self.blocked and edge not in self._ego_edges
@@ -210,7 +224,7 @@ class TrafficSim:
         candidates = [i for i in self._candidate_edges(center, min_m, self.radius_m) if self._allowed(self.edges[i])]
         if not candidates:
             return None
-        weights = self.edge_weight[candidates]
+        weights = self.edge_weight[candidates] * self._proximity(candidates, center)
         for _ in range(8):
             edge = self.edges[int(self.rng.choice(candidates, p=weights / weights.sum()))]
             kind = self._kinds[int(self.rng.choice(len(self._kinds), p=self._kind_p))]
@@ -227,10 +241,11 @@ class TrafficSim:
 
     def _spawn_pedestrian(self, min_m: float) -> Pedestrian | None:
         center = self.ego.xy if self.ego else tuple(self.edge_mid.mean(axis=0))
-        candidates = self._candidate_edges(center, min_m, min(self.radius_m, 170.0))
+        candidates = self._candidate_edges(center, min_m, min(self.radius_m, 150.0))
         if not len(candidates):
             return None
-        edge = self.edges[int(self.rng.choice(candidates))]
+        weights = self._proximity(candidates, center)
+        edge = self.edges[int(self.rng.choice(candidates, p=weights / weights.sum()))]
         return Pedestrian(self._new_id(), edge, float(self.rng.uniform(0, self.length[edge])),
                           int(self.rng.choice([-1, 1])), float(self.rng.uniform(*WALK_SPEED)),
                           variant=int(self.rng.integers(1000)))
@@ -241,16 +256,18 @@ class TrafficSim:
 
     def populate(self) -> None:
         """Remplit la bulle au démarrage (les véhicules peuvent apparaître plus près, hors de l'itinéraire de l'ego)."""
-        while len(self.vehicles) < self.n_vehicles:
-            vehicle = self._spawn_vehicle(30.0)
-            if vehicle is None:
+        for _ in range(self.n_vehicles * 6):                  # plusieurs essais : un tirage peut échouer
+            if len(self.vehicles) >= self.n_vehicles:
                 break
-            self.vehicles.append(vehicle)
-        while len(self.pedestrians) < self.n_pedestrians:
+            vehicle = self._spawn_vehicle(20.0)
+            if vehicle is not None:
+                self.vehicles.append(vehicle)
+        for _ in range(self.n_pedestrians * 6):
+            if len(self.pedestrians) >= self.n_pedestrians:
+                break
             pedestrian = self._spawn_pedestrian(15.0)
-            if pedestrian is None:
-                break
-            self.pedestrians.append(pedestrian)
+            if pedestrian is not None:
+                self.pedestrians.append(pedestrian)
 
     # ------------------------------------------------------------------ itinéraires
     def _next_edges(self, edge: EdgeKey) -> list[EdgeKey]:
@@ -323,7 +340,7 @@ class TrafficSim:
         for i, vehicle in enumerate(self.vehicles):
             ahead = self._ahead_of_ego(vehicle)
             if ahead is not None and 0 <= ahead <= 150.0:
-                replacement = self._spawn_vehicle(SPAWN_MIN_M)
+                replacement = self._spawn_vehicle(SPAWN_AHEAD_M)
                 if replacement is not None:
                     self.vehicles[i] = replacement
 
@@ -451,11 +468,11 @@ class TrafficSim:
         ex, ey = self.ego.xy
         for i, vehicle in enumerate(self.vehicles):
             if self._distance(vehicle.edge, ex, ey) > self.radius_m * 1.2:
-                replacement = self._spawn_vehicle(SPAWN_MIN_M)
+                replacement = self._spawn_vehicle(SPAWN_AHEAD_M)
                 if replacement is not None:
                     self.vehicles[i] = replacement
         for i, pedestrian in enumerate(self.pedestrians):
-            if self._distance(pedestrian.edge, ex, ey) > 220.0:
+            if self._distance(pedestrian.edge, ex, ey) > 180.0:
                 replacement = self._spawn_pedestrian(70.0)
                 if replacement is not None:
                     self.pedestrians[i] = replacement
@@ -488,4 +505,5 @@ def ego_state(episode, ego_length: float) -> EgoState:
                 break
     previous = car.route.edges[car.edge_index - 1] if 0 < car.edge_index <= len(car.route.edges) else (
         car.driven_edges[-1] if car.driven_edges else None)
-    return EgoState(car.current_edge, car.progress_m, episode.speed_mps, length, car.position_xy(), upcoming, previous)
+    return EgoState(car.current_edge, car.progress_m, episode.speed_mps, length, car.position_xy(), upcoming, previous,
+                    car.heading())

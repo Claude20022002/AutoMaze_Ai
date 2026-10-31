@@ -47,7 +47,8 @@ def accented_font(loader):
 
         path = font_manager.findfont("DejaVu Sans", fallback_to_default=False)
         font = loader.loadFont(Filename.fromOsSpecific(path).getFullpath())
-        font.setPixelsPerUnit(48)
+        if font.getNumPages() == 0:                 # police déjà utilisée (FontPool) : réglage impossible
+            font.setPixelsPerUnit(48)
         return font
     except (ImportError, ValueError):
         return None

@@ -66,6 +66,7 @@ class Simulator3D:
             "window-title AutoMaze AI — vue 3D (Casablanca)",
             "audio-library-name null",
             "sync-video true",
+            "hardware-animated-vertices true",              # piétons animés par le GPU
             "framebuffer-multisample 1" if args.msaa else "",
             "multisamples 4" if args.msaa else "",
         ]))
@@ -259,7 +260,7 @@ class Simulator3D:
         self.route_line.update(episode)
         traffic = ""
         if self.traffic_view is not None:
-            self.traffic_view.update()
+            self.traffic_view.update(camera_pos)
             traffic = (f"\nTrafic : {len(self.traffic.vehicles)} véhicules, {len(self.traffic.pedestrians)} piétons, "
                        f"{len(self.traffic.signals)} feux")
         street = self._street()
@@ -318,7 +319,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--view", choices=VIEWS, default="poursuite", help="vue au démarrage (touche V)")
     parser.add_argument("--no-shadows", action="store_true", help="sans ombres portées (si l'affichage saccade)")
     parser.add_argument("--traffic", type=int, default=80, help="véhicules du trafic d'ambiance (0 = aucun)")
-    parser.add_argument("--pedestrians", type=int, default=50, help="piétons sur les trottoirs (0 = aucun)")
+    parser.add_argument("--pedestrians", type=int, default=40, help="piétons sur les trottoirs (0 = aucun)")
     parser.add_argument("--msaa", action="store_true", help="anticrénelage (plus joli, plus lent sur GPU intégré)")
     parser.add_argument("--screenshot", type=Path, help="enregistre une image au lieu d'ouvrir la fenêtre")
     parser.add_argument("--steps", type=int, default=60, help="pas simulés avant la capture")
