@@ -1,0 +1,70 @@
+{
+  "obstacles": {
+    "person": [
+      {"model": "polypizza/person/man-HMnuH5geEG.glb", "height_m": 1.78, "heading": 180, "title": "Man", "author": "Quaternius",
+       "license": "CC0", "url": "https://poly.pizza/m/HMnuH5geEG",
+       "animations": {"walk": "HumanArmature|Man_Walk", "idle": "HumanArmature|Man_Idle"}},
+      {"model": "polypizza/person/animated-woman-9kF7eTDbhO.glb", "height_m": 1.65, "heading": 180, "title": "Animated Woman",
+       "author": "Quaternius", "license": "CC0", "url": "https://poly.pizza/m/9kF7eTDbhO",
+       "animations": {"walk": "Armature|Walking", "idle": "Armature|Idle"}},
+      {"model": "polypizza/person/animated-woman-nIItLV9nxS.glb", "height_m": 1.68, "heading": 180, "title": "Animated Woman",
+       "author": "Quaternius", "license": "CC0", "url": "https://poly.pizza/m/nIItLV9nxS",
+       "animations": {"walk": "CharacterArmature|Walk", "idle": "CharacterArmature|Idle"}},
+      {"model": "polypizza/person/animated-woman-qJ2gsTUBHL.glb", "height_m": 1.66, "heading": 180, "title": "Animated Woman",
+       "author": "Quaternius", "license": "CC0", "url": "https://poly.pizza/m/qJ2gsTUBHL",
+       "animations": {"walk": "CharacterArmature|Walk", "idle": "CharacterArmature|Idle"}}
+    ],
+    "bicycle": [
+      {"model": "quaternius/public-transport/bicycle.glb", "length_m": 1.8, "title": "Bicycle (Public Transport Pack)",
+       "author": "Quaternius", "license": "CC0", "url": "https://quaternius.com/packs/publictransport.html"},
+      {"model": "polypizza/bicycle/bicycle-19VoUuA2pcN.glb", "length_m": 1.8, "heading": -90, "title": "Bicycle",
+       "author": "Poly by Google", "license": "CC-BY 3.0", "url": "https://poly.pizza/m/19VoUuA2pcN"}
+    ],
+    "car": [
+      {"model": "quaternius/lowpoly-cars/normal-car-2.glb", "length_m": 4.4, "heading": 180, "title": "NormalCar2 (Lowpoly Cars)",
+       "author": "Quaternius", "license": "CC0", "url": "https://quaternius.itch.io/lowpoly-cars"},
+      {"model": "quaternius/lowpoly-cars/suv.glb", "length_m": 4.7, "heading": 180, "title": "SUV (Lowpoly Cars)",
+       "author": "Quaternius", "license": "CC0", "url": "https://quaternius.itch.io/lowpoly-cars"},
+      {"model": "quaternius/lowpoly-cars/taxi.glb", "length_m": 4.5, "heading": 180, "title": "Taxi (Lowpoly Cars)",
+       "author": "Quaternius", "license": "CC0", "url": "https://quaternius.itch.io/lowpoly-cars"},
+      {"model": "quaternius/lowpoly-cars/sports-car.glb", "length_m": 4.4, "heading": 180, "title": "SportsCar (Lowpoly Cars)",
+       "author": "Quaternius", "license": "CC0", "url": "https://quaternius.itch.io/lowpoly-cars"}
+    ],
+    "motorcycle": [
+      {"model": "polypizza/motorcycle/motorcycle-dse64pqMKAR.glb", "length_m": 2.1, "title": "Motorcycle",
+       "author": "Poly by Google", "license": "CC-BY 3.0", "url": "https://poly.pizza/m/dse64pqMKAR"}
+    ],
+    "bus": [
+      {"model": "quaternius/public-transport/bus.glb", "length_m": 12.0, "heading": -90, "title": "Bus (Public Transport Pack)",
+       "author": "Quaternius", "license": "CC0", "url": "https://quaternius.com/packs/publictransport.html"},
+      {"model": "quaternius/public-transport/school-bus.glb", "length_m": 11.0, "heading": -90,
+       "title": "SchoolBus (Public Transport Pack)", "author": "Quaternius", "license": "CC0",
+       "url": "https://quaternius.com/packs/publictransport.html"}
+    ],
+    "truck": [
+      {"model": "polypizza/truck/truck-cXw6oiFtZ8.glb", "length_m": 7.5, "heading": 180, "title": "Truck", "author": "Quaternius",
+       "license": "CC0", "url": "https://poly.pizza/m/cXw6oiFtZ8"},
+      {"model": "polypizza/truck/truckk-jHwRymyg2C.glb", "length_m": 7.0, "heading": -90, "title": "Truckk", "author": "KolosStudios",
+       "license": "CC-BY 3.0", "url": "https://poly.pizza/m/jHwRymyg2C"}
+    ]
+  },
+  "ego": {"model": "quaternius/lowpoly-cars/normal-car-1.glb", "length_m": 4.3, "heading": 180, "title": "NormalCar1 (Lowpoly Cars)",
+          "author": "Quaternius", "license": "CC0", "url": "https://quaternius.itch.io/lowpoly-cars"},
+  "props": {
+    "traffic_signals": {"model": "kenney/city-kit-roads/traffic-light.glb", "height_m": 4.5,
+                        "title": "traffic-light (City Kit Roads 2.2)", "author": "Kenney", "license": "CC0",
+                        "url": "https://www.kenney.nl/assets/city-kit-roads"},
+    "stop": {"model": "kenney/city-kit-roads/road-sign-stop.glb", "height_m": 2.4,
+             "title": "road-sign-stop (City Kit Roads 2.2)", "author": "Kenney", "license": "CC0",
+             "url": "https://www.kenney.nl/assets/city-kit-roads"},
+    "crossing": {"model": "kenney/city-kit-roads/road-sign-warning.glb", "height_m": 2.4,
+                 "title": "road-sign-warning (City Kit Roads 2.2)", "author": "Kenney", "license": "CC0",
+                 "url": "https://www.kenney.nl/assets/city-kit-roads"},
+    "street_light": {"model": "kenney/city-kit-roads/light-square.glb", "height_m": 6.0,
+                     "title": "light-square (City Kit Roads 2.2)", "author": "Kenney", "license": "CC0",
+                     "url": "https://www.kenney.nl/assets/city-kit-roads"},
+    "cone": {"model": "kenney/city-kit-roads/construction-cone.glb", "height_m": 0.7,
+             "title": "construction-cone (City Kit Roads 2.2)", "author": "Kenney", "license": "CC0",
+             "url": "https://www.kenney.nl/assets/city-kit-roads"}
+  }
+}
