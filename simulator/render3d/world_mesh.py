@@ -33,7 +33,7 @@ from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 from simulator.render3d import street_furniture, textures
 from simulator.render3d.catalog import ASSETS_3D
 
-MESH_VERSION = 6                 # à incrémenter quand la géométrie change : invalide le cache
+MESH_VERSION = 7                 # à incrémenter quand la géométrie change : invalide le cache
 CACHE_DIR = ASSETS_3D / "_cache"
 TILE_M = 200.0                   # côté d'une tuile (une tuile = un nœud aplati = peu d'appels de dessin)
 LANE_WIDTH_M = 3.2
@@ -608,6 +608,8 @@ def build_world(graph: nx.MultiDiGraph, frame: WorldFrame, loader, catalog=None,
         props = world.attachNewNode("signalisation")
         templates = {kind: load_model(entry, loader) for kind, entry in catalog.props.items()}
         for placement in prop_placements(graph, frame, layout.roads):
+            if placement.kind == "traffic_signals":
+                continue                # feux tricolores dynamiques : traffic_view.py
             copy = templates[placement.kind].copyTo(props)
             copy.setPos(placement.x, placement.y, SIDEWALK_Z)
             copy.setH(placement.heading)

@@ -19,6 +19,7 @@ jamais le rendu 3D. Premier lancement : la ville est construite (une trentaine d
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -116,6 +117,7 @@ class Simulator3D:
         self.time_factor, self.paused, self.budget = args.time_factor, False, 0.0
         self.episode_number = args.episode
         self.obstacle_views = []
+        self.traffic = self.traffic_view = None
         self._layout_key = None
         self.new_episode()
         self.apply_layout()
@@ -158,7 +160,22 @@ class Simulator3D:
             self.episode_number = number
         for view in self.obstacle_views:
             view.destroy()
+        if self.traffic_view is not None:
+            self.traffic_view.destroy()
+            self.traffic = self.traffic_view = None
         self.episode = Episode(self.graph, self.classifier, self.config, self.episode_number, image_for=self.images)
+        if self.args.traffic > 0 or self.args.pedestrians > 0:
+            from simulator.render3d.traffic import TrafficSim
+            from simulator.render3d.traffic_view import TrafficView
+
+            # Trafic d'ambiance : sa propre graine ; il évite les tronçons des obstacles de l'épisode.
+            self.traffic = TrafficSim(self.graph, seed=self.config.seed * 1000 + self.episode_number,
+                                      n_vehicles=self.args.traffic, n_pedestrians=self.args.pedestrians,
+                                      blocked_edges={state.obstacle.edge for state in self.episode.obstacles})
+            self.traffic.set_ego(self._ego_state())
+            self.traffic.populate()
+            self.traffic_view = TrafficView(self.dynamic, self.traffic, self.graph, self.frame, self.catalog,
+                                            self.base.loader, self.minimap)
         seed = self.config.seed * 100_003 + self.episode_number
         self.obstacle_views = [ObstacleView(self.dynamic, state, self.graph, self.catalog, self.base.loader,
                                             self.frame, seed, self.font, self.minimap)
@@ -169,6 +186,20 @@ class Simulator3D:
     def advance(self) -> None:
         self.previous = (self.episode.car.position_xy(), self.episode.car.heading())
         self.episode.step()
+
+    def _ego_state(self):
+        from simulator.render3d.traffic import ego_state
+
+        return ego_state(self.episode, self.catalog.ego.length_m)
+
+    def step_traffic(self, seconds: float) -> None:
+        """Avance le trafic d'ambiance de ``seconds`` secondes simulées, par pas de 0,1 s au plus."""
+        if self.traffic is None:
+            return
+        steps = max(1, math.ceil(seconds / 0.1))
+        for _ in range(steps):
+            self.traffic.set_ego(self._ego_state())
+            self.traffic.step(seconds / steps)
 
     def toggle_pause(self) -> None:
         self.paused = not self.paused
@@ -189,7 +220,9 @@ class Simulator3D:
         from direct.task import Task
         from panda3d.core import ClockObject
 
-        dt = ClockObject.getGlobalClock().getDt()
+        dt = min(ClockObject.getGlobalClock().getDt(), 0.1)
+        if not self.paused:
+            self.step_traffic(dt * self.time_factor)       # le trafic continue après l'arrivée de l'ego
         if not self.paused and not self.episode.done:
             # Temps réel × time_factor : un pas du moteur représente config.step_seconds secondes.
             self.budget += dt * self.time_factor / self.config.step_seconds
@@ -224,8 +257,13 @@ class Simulator3D:
         for view in self.obstacle_views:
             view.update(t, camera_pos)
         self.route_line.update(episode)
+        traffic = ""
+        if self.traffic_view is not None:
+            self.traffic_view.update()
+            traffic = (f"\nTrafic : {len(self.traffic.vehicles)} véhicules, {len(self.traffic.pedestrians)} piétons, "
+                       f"{len(self.traffic.signals)} feux")
         street = self._street()
-        self.panel.update(episode, self.view, self.time_factor, self.paused, street)
+        self.panel.update(episode, self.view, self.time_factor, self.paused, street, traffic)
         if self.view == "conducteur":
             from simulator.render3d.hud import latin
 
@@ -260,6 +298,7 @@ class Simulator3D:
             if self.episode.done:
                 break
             self.advance()
+            self.step_traffic(self.config.step_seconds)
         self.budget = 1.0
         self.render_state()
         self.base.taskMgr.step()                       # anime les personnages (Actor) une fois
@@ -278,6 +317,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--size", type=_size, default=(1440, 860), help="taille de la fenêtre, par exemple 1600x900")
     parser.add_argument("--view", choices=VIEWS, default="poursuite", help="vue au démarrage (touche V)")
     parser.add_argument("--no-shadows", action="store_true", help="sans ombres portées (si l'affichage saccade)")
+    parser.add_argument("--traffic", type=int, default=80, help="véhicules du trafic d'ambiance (0 = aucun)")
+    parser.add_argument("--pedestrians", type=int, default=50, help="piétons sur les trottoirs (0 = aucun)")
     parser.add_argument("--msaa", action="store_true", help="anticrénelage (plus joli, plus lent sur GPU intégré)")
     parser.add_argument("--screenshot", type=Path, help="enregistre une image au lieu d'ouvrir la fenêtre")
     parser.add_argument("--steps", type=int, default=60, help="pas simulés avant la capture")
