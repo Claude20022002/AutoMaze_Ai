@@ -54,45 +54,62 @@ Les chemins `render3d/*` sont la cible : ces fichiers sont à créer.
 5. **Ne jamais modifier les `TODO(équipe)` des notebooks** ni les données. Ne pas commiter de poids, de zips ni de caches.
 6. **Code et commentaires en français**, Python 3.11+ (3.13 sur ce PC), annotations de type, `pytest`.
 
-## Arborescence cible
+## Ce qui existe (31 octobre 2026)
 
 ```text
 simulator/
 ├── render3d/                 vue 3D (seul dossier qui importe panda3d)
-│   ├── app.py                ShowBase, boucle, raccourcis clavier ; point d'entrée
-│   ├── world_mesh.py         routes, trottoirs, carrefours, bâtiments depuis la carte OSM (skill osm-to-3d)
-│   ├── catalog.py            lecture de assets/3d/catalog.json, chargement et normalisation des modèles
-│   ├── actors.py             voiture, obstacles et piétons synchronisés avec Episode
-│   ├── sensors.py            caméra RGB hors écran, projection des boîtes, recadrage
-│   ├── cameras.py            poursuite, conducteur, dessus
-│   ├── environment.py        lumière, ciel, brouillard
-│   ├── hud.py                textes et panneaux 2D (police DejaVu Sans pour les accents)
-│   └── traffic.py            trafic d'ambiance (facultatif)
-├── assets/3d/                modèles retenus (.glb), catalog.json, CREDITS.md (skill asset-pipeline)
-└── ...                       existant : engine.py, world/, perception/, metrics.py, compare.py
-tests/simulator/render3d/     tests sans fenêtre (window-type offscreen) et tests de géométrie pure
+│   ├── app.py                Simulator3D : ShowBase, boucle à pas fixe, caméras, touches, capture --screenshot
+│   ├── world_mesh.py         sol, chaussées, trottoirs, marquages, bâtiments, signalisation (skill osm-to-3d)
+│   ├── buildings.py          bâtiments OSM : téléchargement et lecture de assets/casablanca_buildings.npz
+│   ├── actors.py             EgoCar, ObstacleView (comportement selon la vraie classe), RouteLine
+│   ├── hud.py                bandeau du classifieur, état, vue caméra (image classée), crédits
+│   ├── catalog.py            catalogue des modèles et normalisation (skill asset-pipeline)
+│   ├── build_assets.py       production des .glb depuis les téléchargements
+│   ├── blender_to_glb.py     script exécuté par Blender
+│   └── contact_sheet.py      planches de contrôle des modèles
+├── assets/3d/                .glb, catalog.json, CREDITS.md ; _cache/ (ville en .bam), ignoré par Git
+└── ...                       inchangé : engine.py, world/, perception/, metrics.py, compare.py, main.py (vue 2D)
+tests/simulator/render3d/     catalogue, géométrie pure, vraie carte, capture 3D dans un sous-processus
 ```
 
-Lancement prévu : `python -m simulator.render3d.app --classifier simulation --seed 7`.
+Pas encore faits : capteur caméra RGB 3D et recadrage (mode `--perception render`, recettes dans
+`panda3d-recipes`), trafic d'ambiance, réglages d'heure et de météo, zébras des passages piétons.
+
+```powershell
+python -m simulator.render3d.app                                   # fenêtre, classifieur simulation
+python -m simulator.render3d.app --classifier ours --episode 3
+python -m simulator.render3d.app --view conducteur --time-factor 4
+python -m simulator.render3d.app --screenshot reports/simulator/vue3d.png --steps 60   # sans fenêtre
+```
+
+Touches : Espace pause · → pas à pas · ↑/↓ vitesse · V vue (poursuite, conducteur, dessus) · R · N · Échap.
 
 ## Synchronisation logique et rendu
 
-- Une tâche Panda3D accumule le temps réel. Chaque fois que `step_seconds` (× facteur de vitesse) s'est écoulé,
-  elle appelle `episode.step()`. Le rendu interpole la position de la voiture entre l'état précédent et l'état
-  courant, avec `Car.position_xy()` et `Car.heading()`.
-- Les obstacles sont créés une fois, depuis `episode.obstacles`. Leur position vient de
-  `world.car.point_on_edge(graph, edge, offset_m)`, décalée sur la voie de droite.
-  Leur visibilité suit `ObstacleState.present(step)`.
-- `episode.last_detection` (une `Detection`) alimente le panneau caméra : image classée, prédiction, verdict.
-- Nouvel épisode : détruire les acteurs (`removeNode`), garder la carte, qui coûte cher à construire.
+- `Simulator3D.tick` accumule le temps réel × `time_factor`. Chaque fois que `step_seconds` s'est écoulé, elle
+  appelle `episode.step()`, comme `main.py`. Le rendu interpole la voiture entre l'état précédent et l'état
+  courant (`Car.position_xy()`, `Car.heading()`). Au-delà de 60 m d'écart, il n'y a pas d'interpolation : c'est
+  le cas du demi-tour du moteur, qui **ramène la voiture au début du tronçon** (simplification de `engine.py`) et
+  la fait sauter à l'écran.
+- Les obstacles (`ObstacleView`) sont créés à chaque épisode depuis `episode.obstacles`. Le modèle est choisi avec
+  `catalog.pick` et la graine de l'obstacle. Le comportement affiché suit la **vraie** classe :
+  - la personne traverse entre `detected_step` et `cleared_step` ;
+  - le vélo ou la moto repart après `cleared_step` ;
+  - les autres véhicules restent immobiles.
+- Le moteur traite voiture et obstacles comme des points. Le point de l'ego est son pare-chocs avant, celui d'un
+  véhicule obstacle est son arrière : les modèles ne se chevauchent pas quand le moteur arrête la voiture 1 m avant.
+- `episode.last_detection` alimente la vue caméra du HUD : l'image de la banque d'obstacles, jamais le rendu 3D.
+- Nouvel épisode : `ObstacleView.destroy()` (y compris `Actor.cleanup()`), la ville reste en place.
 
-## Budget de performance (GPU intégré)
+## Performances mesurées (GPU AMD intégré, 1440×860, hors écran)
 
-- Objectif : 30 images/s en 1280×720. Mesurer avec `base.setFrameRateMeter(True)` avant toute optimisation.
-- Carte découpée en tuiles de 200 m. Chaque tuile passe par `flattenStrong()` après construction, ce qui
-  réduit le nombre de draw calls.
-- Bâtiments sans texture, couleurs par sommet. Pas d'ombres portées par défaut. `simplepbr` désactivable avec `--no-pbr`.
-- Distance de rendu limitée par le brouillard et `lens.setFar`. Modèles low-poly uniquement.
+- Environ 15 s de construction de la ville au premier lancement (puis cache .bam, environ 3 s). Cache invalidé par le
+  hash de la carte, des bâtiments et `world_mesh.MESH_VERSION`, à incrémenter à chaque changement de géométrie.
+- 179 000 triangles, 241 Geoms (tuiles de 200 m aplaties). Vue poursuite environ 195 images/s, conducteur
+  environ 170, dessus environ 400. En fenêtre, la synchronisation verticale limite à la fréquence de l'écran.
+- Pas de simplepbr ni d'ombres : les modèles glTF s'affichent correctement avec l'éclairage fixe (soleil et ambiante).
+  `--msaa` active l'anticrénelage.
 
 ## Vérifier une modification
 

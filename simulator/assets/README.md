@@ -12,3 +12,15 @@ Réseau routier carrossable d'une partie de Casablanca, du Maârif au centre-vil
 
 Données © contributeurs OpenStreetMap, disponibles sous licence ODbL :
 https://www.openstreetmap.org/copyright. Cette mention doit apparaître dans l'interface du simulateur et dans le rapport.
+
+## casablanca_buildings.npz
+
+Contours des bâtiments de la même zone, pour la vue 3D (`simulator/render3d/`) : 4 609 contours, projetés dans le
+repère de la carte (UTM 29N, EPSG:32629), avec une hauteur par bâtiment.
+
+- Source : OpenStreetMap (balise `building`), téléchargé avec OSMnx 2.1 le 31 octobre 2026.
+- Hauteur : balise `height`, sinon `building:levels` × 3,2 m, sinon **estimée** (3 à 7 étages tirés avec une graine) :
+  ce ne sont pas toujours les vraies hauteurs.
+- Régénérer : `python -m simulator.render3d.buildings --download`.
+
+Données © contributeurs OpenStreetMap, licence ODbL (même mention que la carte).

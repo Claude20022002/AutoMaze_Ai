@@ -231,3 +231,4 @@ reports/simulator/
 # Simulateur 3D : téléchargements bruts et fichiers non redistribuables (Mixamo)
 simulator/assets/3d/_downloads/
 simulator/assets/3d/_local/
+simulator/assets/3d/_cache/

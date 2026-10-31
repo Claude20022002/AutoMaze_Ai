@@ -27,7 +27,7 @@ from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 
 from simulator.render3d.catalog import ASSETS_3D
 
-MESH_VERSION = 2                 # à incrémenter quand la géométrie change : invalide le cache
+MESH_VERSION = 4                 # à incrémenter quand la géométrie change : invalide le cache
 CACHE_DIR = ASSETS_3D / "_cache"
 TILE_M = 200.0                   # côté d'une tuile (une tuile = un nœud aplati = peu d'appels de dessin)
 LANE_WIDTH_M = 3.2
@@ -238,8 +238,28 @@ class PropPlacement:
     heading: float          # la face du panneau (-Y du modèle) regarde les véhicules qui arrivent
 
 
-def prop_placements(graph: nx.MultiDiGraph, frame: WorldFrame) -> list[PropPlacement]:
-    """Un feu ou un panneau par tronçon entrant dans un nœud OSM marqué, à droite de la chaussée."""
+def push_off_road(x: float, y: float, roads, boundary, margin: float = 0.8) -> tuple[float, float]:
+    """Point sur la chaussée : ramené au bord le plus proche, puis ``margin`` mètres au-delà (trottoir, terre-plein)."""
+    for _ in range(5):                    # l'espace entre deux chaussées peut être plus étroit que la marge
+        point = Point(x, y)
+        if not roads.contains(point):
+            break
+        edge = ops.nearest_points(boundary, point)[0]
+        dx, dy = edge.x - x, edge.y - y
+        norm = math.hypot(dx, dy) or 1.0
+        x, y = edge.x + dx / norm * margin, edge.y + dy / norm * margin
+    return x, y
+
+
+def prop_placements(graph: nx.MultiDiGraph, frame: WorldFrame, roads=None) -> list[PropPlacement]:
+    """Un feu ou un panneau par tronçon entrant dans un nœud OSM marqué, à droite de la chaussée.
+
+    ``roads`` (polygones des chaussées, repère local) : un panneau qui tomberait sur une autre chaussée
+    (grand carrefour, boulevard à deux chaussées) est repoussé hors de la chaussée.
+    """
+    boundary = roads.boundary if roads is not None else None
+    if roads is not None:
+        shapely.prepare(roads)
     placements = []
     for node, data in graph.nodes(data=True):
         kind = _first(data.get("highway"))
@@ -257,6 +277,8 @@ def prop_placements(graph: nx.MultiDiGraph, frame: WorldFrame) -> list[PropPlace
             side = road_width(edge) / 2 + 1.0
             back = 3.0 if kind != "crossing" else 0.0
             x, y = frame.to_local(end.x - dx * back + dy * side, end.y - dy * back - dx * side)
+            if roads is not None:
+                x, y = push_off_road(x, y, roads, boundary)
             placements.append(PropPlacement(kind, x, y, heading_deg(dx, dy)))
             if kind == "crossing":
                 break                       # un seul panneau par passage piéton
@@ -381,7 +403,7 @@ def build_world(graph: nx.MultiDiGraph, frame: WorldFrame, loader, catalog=None,
 
         props = world.attachNewNode("signalisation")
         templates = {kind: load_model(entry, loader) for kind, entry in catalog.props.items()}
-        for placement in prop_placements(graph, frame):
+        for placement in prop_placements(graph, frame, layout.roads):
             copy = templates[placement.kind].copyTo(props)
             copy.setPos(placement.x, placement.y, SIDEWALK_Z)
             copy.setH(placement.heading)

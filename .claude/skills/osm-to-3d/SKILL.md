@@ -5,6 +5,18 @@ description: Construire la scène 3D (chaussées, trottoirs, marquages, carrefou
 
 # De la carte OSM à la scène 3D
 
+**Implémenté dans `simulator/render3d/world_mesh.py` et `buildings.py`** (31 octobre 2026). Ce skill décrit les choix
+et les pièges. Pour toute modification de géométrie, incrémenter `MESH_VERSION`, sinon l'ancien cache .bam est réutilisé.
+
+## Pièges rencontrés
+
+| Symptôme | Cause | Correction en place |
+| --- | --- | --- |
+| Hachures sur les routes vues de loin | Z-fighting entre le sol et la chaussée à 2 cm (précision du tampon de profondeur) | Sol dans le bin `background` sans écriture de profondeur ; marquages avec `setDepthOffset` |
+| Construction de la ville en 112 s | `roads.buffer()` recalculé pour chaque bâtiment | Zone d'exclusion calculée une fois et `shapely.prepare` |
+| Feux et panneaux sur une autre chaussée | Grands carrefours, boulevards à deux chaussées | `push_off_road` : vers le bord le plus proche puis 0,8 m au-delà, répété |
+| Overpass `502` ou délai dépassé | Serveurs saturés | Miroirs à la suite (`road_map.OVERPASS_SERVERS`), `requests_timeout = 300` |
+
 Équivalent de l'import OpenDRIVE de CARLA, mais à partir de **notre** graphe. Il n'y a pas de seconde carte :
 la voiture 3D, Dijkstra et les obstacles partagent exactement les mêmes tronçons (`EdgeKey`).
 
@@ -52,8 +64,8 @@ class WorldFrame:
    - `line.buffer(width / 2, cap_style="flat")` pour chaque rue ;
    - puis `unary_union` par tuile : les carrefours se forment tout seuls.
 4. Trottoirs : `buffer(width / 2 + 2.5)` moins la chaussée, légèrement surélevés (z = 0,12 m).
-5. Triangulation : `panda3d.core.Triangulator` (testé), avec `addVertex`, `addPolygonVertex`, `beginHole` et
-   `addHoleVertex` pour les trous, puis `triangulate()`. Il n'y a aucune dépendance à ajouter.
+5. Triangulation : `shapely.constrained_delaunay_triangles` (shapely ≥ 2.1, trous respectés), en Python pur, donc
+   testable sans GPU. Triangles remis dans le sens trigonométrique pour faire face à +Z.
 6. Marquages : ligne centrale en tirets (`line.interpolate` tous les 6 m), uniquement si la rue est à double sens
    et a au moins 2 voies. Les couper à 8 m des carrefours.
 
