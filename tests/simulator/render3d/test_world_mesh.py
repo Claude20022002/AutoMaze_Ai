@@ -127,14 +127,15 @@ def test_props_stand_off_the_carriageway(city):
 
 
 @needs_map
-def test_3d_view_screenshot(tmp_path):
+@pytest.mark.parametrize("view", ["poursuite", "conducteur", "dessus"])
+def test_3d_view_screenshot(tmp_path, view):
     pytest.importorskip("panda3d")
     out = tmp_path / "vue3d.png"
-    done = subprocess.run([sys.executable, "-m", "simulator.render3d.app", "--screenshot", str(out),
-                           "--steps", "30", "--size", "640x400"], capture_output=True, text=True, timeout=900)
+    done = subprocess.run([sys.executable, "-m", "simulator.render3d.app", "--screenshot", str(out), "--view", view,
+                           "--steps", "30", "--size", "1100x680"], capture_output=True, text=True, timeout=900)
     assert done.returncode == 0, done.stderr[-2000:]
     from PIL import Image
 
     image = Image.open(out)
-    assert image.size == (640, 400)
+    assert image.size == (1100, 680)
     assert len(image.convert("RGB").getcolors(maxcolors=1 << 20)) > 200  # une vraie scène, pas un écran uni

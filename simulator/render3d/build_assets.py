@@ -58,6 +58,8 @@ SOURCES: tuple[AssetSource, ...] = (
     AssetSource("quaternius/lowpoly-cars/normal-car-2.glb", f"{_CARS}/NormalCar2.obj"),
     AssetSource("quaternius/lowpoly-cars/suv.glb", f"{_CARS}/SUV.obj"),
     AssetSource("quaternius/lowpoly-cars/taxi.glb", f"{_CARS}/Taxi.obj"),
+    # Petit taxi rouge, typique de Casablanca : même modèle, carrosserie recolorée (matériau « Yellow »).
+    AssetSource("quaternius/lowpoly-cars/petit-taxi-rouge.glb", f"{_CARS}/Taxi.obj", colors={"Yellow": (0.70, 0.07, 0.07)}),
     AssetSource("quaternius/lowpoly-cars/sports-car.glb", f"{_CARS}/SportsCar.obj"),
     # Quaternius, Public Transport : les .glb du zip reconditionné (Eclair Assets) ont perdu leurs matériaux,
     # on convertit donc les OBJ + MTL d'origine qu'il contient (source_reference/).

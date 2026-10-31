@@ -7,6 +7,11 @@ Deux couches :
 - la géométrie, en Python pur (shapely, numpy) : testable sans GPU ;
 - ``build_world`` la transforme en maillages Panda3D, découpés en tuiles et mis en cache (.bam).
 
+Apparence (« ville blanche ») : façades claires Art Déco ou modernes, texturées étage par étage, rez-de-chaussée
+commerçants à stores colorés, quelques façades pastel, boulevards bordés de palmiers, trottoirs en dalles avec
+bordures, zébras aux passages piétons et aux feux. Textures : ``textures.py`` ; arbres et lampadaires :
+``street_furniture.py``.
+
 Repère : les coordonnées UTM (environ 3,7 millions de mètres) perdent leur précision en float32 ; tout est donc
 exprimé dans un repère local centré sur la carte (``WorldFrame``). X = est, Y = nord, Z = haut, en mètres.
 """
@@ -25,9 +30,10 @@ import shapely
 from shapely import affinity, ops
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 
+from simulator.render3d import street_furniture, textures
 from simulator.render3d.catalog import ASSETS_3D
 
-MESH_VERSION = 4                 # à incrémenter quand la géométrie change : invalide le cache
+MESH_VERSION = 6                 # à incrémenter quand la géométrie change : invalide le cache
 CACHE_DIR = ASSETS_3D / "_cache"
 TILE_M = 200.0                   # côté d'une tuile (une tuile = un nœud aplati = peu d'appels de dessin)
 LANE_WIDTH_M = 3.2
@@ -45,13 +51,23 @@ HIGHWAY_WIDTH_M = {
 }
 DEFAULT_WIDTH_M = 6.5
 
-GROUND_COLOR = (0.80, 0.78, 0.72)
-ROAD_COLOR = (0.30, 0.31, 0.33)
-SIDEWALK_COLOR = (0.70, 0.69, 0.66)
-MARKING_COLOR = (0.95, 0.95, 0.92)
-# Façades claires, typiques du centre de Casablanca ; toit un peu plus sombre.
-BUILDING_COLORS = ((0.93, 0.91, 0.86), (0.90, 0.86, 0.78), (0.86, 0.84, 0.80), (0.95, 0.94, 0.90), (0.88, 0.82, 0.74))
+# Couleurs multipliées par les textures (textures claires : ces couleurs donnent la teinte finale).
+GROUND_COLOR = (0.84, 0.82, 0.77)
+ROAD_COLOR = (0.38, 0.39, 0.41)
+SIDEWALK_COLOR = (0.84, 0.82, 0.78)
+CURB_COLOR = (0.74, 0.73, 0.70)
+MARKING_COLOR = (0.96, 0.96, 0.93)
+GRASS_COLOR = (0.47, 0.66, 0.36)
+ISLAND_MAX_M2 = 4000.0           # trou de la chaussée plus petit : îlot (rond-point, terre-plein) engazonné
+# « Ville blanche » : surtout des blancs et des crèmes, quelques façades pastel (ocre, rose, sable, bleu-gris).
+BUILDING_COLORS = (
+    ((0.98, 0.97, 0.94), 5), ((0.96, 0.93, 0.87), 4), ((0.93, 0.90, 0.84), 3),
+    ((0.95, 0.83, 0.64), 1), ((0.96, 0.86, 0.82), 1), ((0.91, 0.83, 0.69), 1),
+    ((0.97, 0.92, 0.74), 1), ((0.84, 0.88, 0.92), 1),
+)
+ROOF_COLORS = ((0.66, 0.65, 0.63), (0.60, 0.59, 0.58), (0.72, 0.69, 0.65), (0.70, 0.55, 0.45))   # terrasses, rares tuiles
 LEVEL_HEIGHT_M = 3.2
+SHOP_MIN_HEIGHT_M = 7.0          # en dessous, pas de rez-de-chaussée commercial
 
 
 # ---------------------------------------------------------------------- repère local
@@ -121,6 +137,7 @@ class Street:
     line: LineString      # coordonnées locales
     width: float
     two_way: bool
+    kind: str = "minor"   # "major" (boulevards : palmiers), "medium", "minor" (street_furniture.street_class)
 
 
 def streets(graph: nx.MultiDiGraph, frame: WorldFrame) -> list[Street]:
@@ -129,11 +146,12 @@ def streets(graph: nx.MultiDiGraph, frame: WorldFrame) -> list[Street]:
     for u, v, data in graph.edges(data=True):
         key = (min(u, v), max(u, v), round(float(data.get("length", 0.0)), 1))
         if key in seen:
-            seen[key] = Street(seen[key].line, seen[key].width, True)
+            seen[key] = Street(seen[key].line, seen[key].width, True, seen[key].kind)
             continue
         oneway = _first(data.get("oneway"))
         two_way = str(oneway).lower() not in ("true", "1", "yes")
-        seen[key] = Street(frame.geometry(edge_line(graph, u, v, data)), road_width(data), two_way)
+        seen[key] = Street(frame.geometry(edge_line(graph, u, v, data)), road_width(data), two_way,
+                           street_furniture.street_class(data.get("highway")))
     return list(seen.values())
 
 
@@ -142,9 +160,52 @@ class RoadLayout:
     roads: Polygon | MultiPolygon
     sidewalks: Polygon | MultiPolygon
     markings: Polygon | MultiPolygon
+    islands: Polygon | MultiPolygon = Polygon()   # îlots entourés de chaussée : gazon
 
 
-def road_layout(street_list: list[Street]) -> RoadLayout:
+def traffic_islands(roads) -> Polygon | MultiPolygon:
+    """Petits trous de la chaussée (centre des ronds-points, terre-pleins), réduits de 1 m pour garder une bordure."""
+    holes = [Polygon(ring).buffer(-1.0) for polygon in _polygons(roads) for ring in polygon.interiors
+             if Polygon(ring).area <= ISLAND_MAX_M2]
+    return shapely.union_all([h for h in holes if not h.is_empty]) if holes else Polygon()
+
+
+def crosswalks(graph: nx.MultiDiGraph, frame: WorldFrame) -> list[Polygon]:
+    """Bandes de zébra : en travers de la rue aux passages piétons OSM, sur chaque branche des carrefours à feux."""
+    stripes: list[Polygon] = []
+    for node, data in graph.nodes(data=True):
+        kind = _first(data.get("highway"))
+        if kind not in ("crossing", "traffic_signals"):
+            continue
+        cx0, cy0 = frame.to_local(data["x"], data["y"])
+        branches: dict[int, tuple[LineString, float]] = {}
+        for u, v, edge in list(graph.out_edges(node, data=True)) + list(graph.in_edges(node, data=True)):
+            line = frame.geometry(edge_line(graph, u, v, edge))
+            if u != node:
+                line = LineString(list(line.coords)[::-1])     # toujours orientée depuis le nœud
+            branches.setdefault(v if u == node else u, (line, road_width(edge)))
+        if not branches:
+            continue
+        widest = max(w for _, w in branches.values())
+        chosen = list(branches.values())[:1] if kind == "crossing" else list(branches.values())
+        for line, width in chosen:
+            if line.length < 6:
+                continue
+            ahead = line.interpolate(min(2.0, line.length))
+            dx, dy = ahead.x - cx0, ahead.y - cy0
+            norm = math.hypot(dx, dy) or 1.0
+            dx, dy = dx / norm, dy / norm
+            back = 0.0 if kind == "crossing" else min(widest / 2 + 2.5, line.length / 2)
+            cx, cy = cx0 + dx * back, cy0 + dy * back
+            for k in range(int(width)):
+                t = -width / 2 + 0.5 + k
+                ox, oy = cx + dy * t, cy - dx * t
+                stripes.append(Polygon([(ox + dx * a + dy * b, oy + dy * a - dx * b)
+                                        for a, b in ((-1.5, -0.25), (1.5, -0.25), (1.5, 0.25), (-1.5, 0.25))]))
+    return stripes
+
+
+def road_layout(street_list: list[Street], crosswalk_stripes: list[Polygon] = ()) -> RoadLayout:
     """Polygones des chaussées (les carrefours se forment par union), des trottoirs et des marquages."""
     roads = shapely.union_all([s.line.buffer(s.width / 2, cap_style="flat") for s in street_list] +
                               [Point(c).buffer(s.width / 2) for s in street_list for c in s.line.boundary.geoms])
@@ -159,8 +220,9 @@ def road_layout(street_list: list[Street]) -> RoadLayout:
         while position + DASH_M <= length - INTERSECTION_CLEAR_M:
             dashes.append(ops.substring(street.line, position, position + DASH_M).buffer(0.08, cap_style="flat"))
             position += DASH_M + GAP_M
-    markings = shapely.union_all(dashes) if dashes else Polygon()
-    return RoadLayout(roads, sidewalks, markings)
+    paint = dashes + [stripe.intersection(roads) for stripe in crosswalk_stripes]
+    markings = shapely.union_all(paint) if paint else Polygon()
+    return RoadLayout(roads, sidewalks, markings, traffic_islands(roads))
 
 
 def tiles(geom, tile_m: float = TILE_M) -> Iterator[tuple[tuple[int, int], Polygon | MultiPolygon]]:
@@ -220,6 +282,40 @@ def extrude(polygon: Polygon, height: float) -> tuple[np.ndarray, np.ndarray, np
     return pos, np.asarray(normals, dtype=np.float64).reshape(-1, 3), np.arange(len(pos), dtype=np.int32).reshape(-1, 3)
 
 
+def wall_band(polygon: Polygon, z0: float, z1: float, bay_m: float, unit_v: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Murs d'un bâtiment entre z0 et z1, avec coordonnées de texture : positions, normales, uv (N, 2).
+
+    Sur chaque mur, u compte des travées entières (les fenêtres ne sont jamais coupées) et v des étages
+    entiers (``unit_v`` mètres par répétition), arrondis au plus proche.
+    """
+    positions, normals, uvs = [], [], []
+    v_max = max(1, round((z1 - z0) / unit_v))
+    ring = shapely.geometry.polygon.orient(polygon, sign=1.0).exterior.coords
+    for (x0, y0), (x1, y1) in zip(ring[:-1], ring[1:]):
+        dx, dy = x1 - x0, y1 - y0
+        length = math.hypot(dx, dy)
+        if length < 1e-6:
+            continue
+        n = (dy / length, -dx / length, 0.0)
+        u_max = max(1, round(length / bay_m)) if length >= bay_m * 0.6 else length / bay_m
+        positions.extend([(x0, y0, z0), (x1, y1, z0), (x1, y1, z1), (x0, y0, z0), (x1, y1, z1), (x0, y0, z1)])
+        normals.extend([n] * 6)
+        uvs.extend([(0, 0), (u_max, 0), (u_max, v_max), (0, 0), (u_max, v_max), (0, v_max)])
+    return (np.asarray(positions, dtype=np.float64).reshape(-1, 3), np.asarray(normals, dtype=np.float64).reshape(-1, 3),
+            np.asarray(uvs, dtype=np.float64).reshape(-1, 2))
+
+
+def building_style(index: int) -> tuple[str, int | None, tuple[float, float, float], tuple[float, float, float]]:
+    """Style de façade, variante de vitrine (ou None), couleur des murs et du toit, tirés avec l'indice du bâtiment."""
+    rng = np.random.default_rng([index, 17])
+    style = textures.FACADE_STYLES[int(rng.choice(len(textures.FACADE_STYLES), p=(0.5, 0.2, 0.3)))]
+    colors, weights = zip(*BUILDING_COLORS)
+    wall = colors[int(rng.choice(len(colors), p=np.asarray(weights) / sum(weights)))]
+    roof = ROOF_COLORS[int(rng.integers(len(ROOF_COLORS)))]
+    shop = int(rng.integers(4)) if rng.random() < 0.7 else None
+    return style, shop, wall, roof
+
+
 def building_height(height: float, levels: float, seed: int) -> float:
     """Hauteur OSM (balise height, sinon étages × 3,2 m), sinon estimée : 3 à 7 étages tirés avec la graine."""
     if np.isfinite(height) and 2.5 <= height <= 200:
@@ -227,6 +323,18 @@ def building_height(height: float, levels: float, seed: int) -> float:
     if np.isfinite(levels) and 1 <= levels <= 60:
         return float(levels) * LEVEL_HEIGHT_M
     return LEVEL_HEIGHT_M * int(np.random.default_rng(seed).integers(3, 8))
+
+
+def curb_segments(geom) -> list[tuple[float, float, float, float]]:
+    """Segments des contours des trottoirs (x0, y0, x1, y1), orientés pour que la normale (dy, -dx) sorte du trottoir."""
+    segments = []
+    for polygon in _polygons(geom):
+        polygon = shapely.geometry.polygon.orient(polygon, sign=1.0)
+        for ring in (polygon.exterior, *polygon.interiors):
+            coords = list(ring.coords)
+            segments.extend((x0, y0, x1, y1) for (x0, y0), (x1, y1) in zip(coords[:-1], coords[1:])
+                            if math.hypot(x1 - x0, y1 - y0) > 1e-6)
+    return segments
 
 
 # ---------------------------------------------------------------------- signalisation
@@ -286,7 +394,8 @@ def prop_placements(graph: nx.MultiDiGraph, frame: WorldFrame, roads=None) -> li
 
 
 # ---------------------------------------------------------------------- Panda3D
-def _geom_node(name: str, positions: np.ndarray, normals: np.ndarray, colors: np.ndarray, triangles: np.ndarray):
+def _geom_node(name: str, positions: np.ndarray, normals: np.ndarray, colors: np.ndarray, triangles: np.ndarray,
+               uvs: np.ndarray | None = None):
     from panda3d.core import (Geom, GeomNode, GeomTriangles, GeomVertexArrayFormat, GeomVertexData,
                               GeomVertexFormat)
 
@@ -294,11 +403,14 @@ def _geom_node(name: str, positions: np.ndarray, normals: np.ndarray, colors: np
     array.addColumn("vertex", 3, Geom.NT_float32, Geom.C_point)
     array.addColumn("normal", 3, Geom.NT_float32, Geom.C_normal)
     array.addColumn("color", 4, Geom.NT_float32, Geom.C_color)
+    columns = [positions, normals, colors]
+    if uvs is not None:
+        array.addColumn("texcoord", 2, Geom.NT_float32, Geom.C_texcoord)
+        columns.append(uvs)
     fmt = GeomVertexFormat.registerFormat(GeomVertexFormat(array))
     data = GeomVertexData(name, fmt, Geom.UH_static)
     data.uncleanSetNumRows(len(positions))
-    interleaved = np.hstack([positions, normals, colors]).astype(np.float32)
-    memoryview(data.modifyArray(0)).cast("B")[:] = interleaved.tobytes()
+    memoryview(data.modifyArray(0)).cast("B")[:] = np.hstack(columns).astype(np.float32).tobytes()
     prim = GeomTriangles(Geom.UH_static)
     prim.setIndexType(Geom.NT_uint32)
     prim.modifyVertices().uncleanSetNumRows(triangles.size)
@@ -310,27 +422,98 @@ def _geom_node(name: str, positions: np.ndarray, normals: np.ndarray, colors: np
     return node
 
 
-def _flat(name: str, geom, z: float, color: tuple[float, float, float]):
+def _solid(color, n: int) -> np.ndarray:
+    return np.tile([*color, 1.0], (n, 1))
+
+
+def _indices(n: int) -> np.ndarray:
+    return np.arange(n, dtype=np.int32).reshape(-1, 3)
+
+
+def _flat(name: str, geom, z: float, color: tuple[float, float, float], textured: bool = True):
     points, triangles = triangulate(geom)
     if not len(points):
         return None
     positions = np.column_stack([points, np.full(len(points), z)])
     normals = np.tile([0.0, 0.0, 1.0], (len(points), 1))
-    colors = np.tile([*color, 1.0], (len(points), 1))
-    return _geom_node(name, positions, normals, colors, triangles)
+    uvs = points / textures.GROUND_TILE_M if textured else None
+    return _geom_node(name, positions, normals, _solid(color, len(points)), triangles, uvs)
 
 
-def _buildings_node(polygons: list[Polygon], heights: list[float]):
-    parts_pos, parts_nrm, parts_col = [], [], []
-    for i, (polygon, height) in enumerate(zip(polygons, heights)):
-        pos, nrm, _ = extrude(polygon, height)
-        wall = np.array(BUILDING_COLORS[i % len(BUILDING_COLORS)])
-        col = np.where(nrm[:, 2:3] > 0.5, wall * 0.85, wall)        # toit un peu plus sombre
-        parts_pos.append(pos), parts_nrm.append(nrm), parts_col.append(np.column_stack([col, np.ones(len(col))]))
-    if not parts_pos:
+def _curbs_node(segments: list[tuple[float, float, float, float]]):
+    """Bordures : faces verticales entre la chaussée (ROAD_Z) et le dessus du trottoir (SIDEWALK_Z)."""
+    if not segments:
         return None
-    pos, nrm, col = np.vstack(parts_pos), np.vstack(parts_nrm), np.vstack(parts_col)
-    return _geom_node("batiments", pos, nrm, col, np.arange(len(pos), dtype=np.int32).reshape(-1, 3))
+    seg = np.asarray(segments, dtype=np.float64)
+    x0, y0, x1, y1 = seg.T
+    length = np.hypot(x1 - x0, y1 - y0)
+    n = np.column_stack([(y1 - y0) / length, -(x1 - x0) / length, np.zeros(len(seg))])
+    low, high = np.full(len(seg), ROAD_Z), np.full(len(seg), SIDEWALK_Z)
+    corners = [(x0, y0, low), (x1, y1, low), (x1, y1, high), (x0, y0, low), (x1, y1, high), (x0, y0, high)]
+    positions = np.stack([np.column_stack(c) for c in corners], axis=1).reshape(-1, 3)
+    return _geom_node("bordures", positions, np.repeat(n, 6, axis=0), _solid(CURB_COLOR, len(positions)),
+                      _indices(len(positions)))
+
+
+def _buildings_nodes(entries: list[tuple[int, Polygon, float]]) -> list[tuple[str, object]]:
+    """Bâtiments d'une tuile, regroupés par texture : [(clé de texture, GeomNode)]."""
+    groups: dict[str, list] = {}
+    for index, polygon, height in entries:
+        style, shop, wall, roof = building_style(index)
+        shop_band = shop is not None and height >= SHOP_MIN_HEIGHT_M
+        z_floors = textures.GROUND_FLOOR_M if shop_band else 0.0
+        if shop_band:
+            pos, nrm, uv = wall_band(polygon, 0.0, z_floors, textures.SHOP_BAY_M, textures.GROUND_FLOOR_M)
+            groups.setdefault(f"vitrine_{shop}", []).append((pos, nrm, _solid(wall, len(pos)), uv))
+        pos, nrm, uv = wall_band(polygon, z_floors, height, textures.FACADE_BAY_M, textures.FLOOR_M)
+        groups.setdefault(f"facade_{style}", []).append((pos, nrm, _solid(wall, len(pos)), uv))
+        roof_pts, _ = triangulate(polygon)
+        pos = np.column_stack([roof_pts, np.full(len(roof_pts), height)])
+        groups.setdefault("toit", []).append((pos, np.tile([0.0, 0.0, 1.0], (len(pos), 1)), _solid(roof, len(pos)),
+                                              roof_pts / textures.GROUND_TILE_M))
+    nodes = []
+    for key, parts in groups.items():
+        pos, nrm, col, uv = (np.vstack([part[i] for part in parts]) for i in range(4))
+        nodes.append((key, _geom_node(key, pos, nrm, col, _indices(len(pos)), uv)))
+    return nodes
+
+
+def _transformed(mesh, x: float, y: float, heading: float, scale: float):
+    pos, nrm, col, _ = mesh
+    a = math.radians(heading)
+    rot = np.array([[math.cos(a), -math.sin(a), 0.0], [math.sin(a), math.cos(a), 0.0], [0.0, 0.0, 1.0]])
+    return pos @ rot.T * scale + np.array([x, y, SIDEWALK_Z]), nrm @ rot.T, col
+
+
+_FURNITURE_TEMPLATES: dict | None = None
+
+
+def _furniture_node(items: list):
+    """Arbres, palmiers et lampadaires d'une tuile, fusionnés en un seul maillage."""
+    global _FURNITURE_TEMPLATES
+    if _FURNITURE_TEMPLATES is None:
+        _FURNITURE_TEMPLATES = {"palm": [street_furniture.palm(h) for h in (7.5, 9.0, 10.5)],
+                                "tree": [street_furniture.round_tree(6.0, v) for v in range(3)],
+                                "light": [street_furniture.street_light()]}
+    parts = [_transformed(_FURNITURE_TEMPLATES[p.kind][p.variant % len(_FURNITURE_TEMPLATES[p.kind])],
+                          p.x, p.y, p.heading, p.scale) for p in items]
+    if not parts:
+        return None
+    pos, nrm, col = (np.vstack([part[i] for part in parts]) for i in range(3))
+    return _geom_node("mobilier", pos, nrm, col, _indices(len(pos)))
+
+
+def city_textures() -> dict:
+    """Textures Panda3D de la ville, par clé de groupe."""
+    out = {"sol": textures.panda_texture(textures.ground(), "sol"),
+           "chaussee": textures.panda_texture(textures.asphalt(), "bitume"),
+           "trottoir": textures.panda_texture(textures.pavers(), "dalles"),
+           "toit": textures.panda_texture(textures.ground(), "toit")}
+    for style in textures.FACADE_STYLES:
+        out[f"facade_{style}"] = textures.panda_texture(textures.facade(style), f"facade_{style}")
+    for variant in range(4):
+        out[f"vitrine_{variant}"] = textures.panda_texture(textures.shopfront(variant), f"vitrine_{variant}")
+    return out
 
 
 def cache_key(graph_file: Path, buildings_file: Path | None) -> str:
@@ -341,13 +524,17 @@ def cache_key(graph_file: Path, buildings_file: Path | None) -> str:
     return digest.hexdigest()[:16]
 
 
+def _tile_key(x: float, y: float) -> tuple[int, int]:
+    return math.floor(x / TILE_M), math.floor(y / TILE_M)
+
+
 def build_world(graph: nx.MultiDiGraph, frame: WorldFrame, loader, catalog=None, buildings=None,
                 cache_file: Path | None = None):
     """NodePath de toute la ville. ``buildings`` : (polygones UTM, hauteurs) ou None.
 
-    Avec ``cache_file`` : relu s'il existe, sinon construit puis enregistré.
+    Avec ``cache_file`` : relu s'il existe, sinon construit puis enregistré (textures comprises).
     """
-    from panda3d.core import Filename, NodePath
+    from panda3d.core import BamFile, BamWriter, Filename, NodePath
 
     if cache_file is not None and cache_file.exists():
         cached = loader.loadModel(Filename.fromOsSpecific(str(cache_file)), noCache=True)
@@ -355,21 +542,24 @@ def build_world(graph: nx.MultiDiGraph, frame: WorldFrame, loader, catalog=None,
             return cached
 
     world = NodePath("ville")
+    texs = city_textures()
     street_list = streets(graph, frame)
-    layout = road_layout(street_list)
+    layout = road_layout(street_list, crosswalks(graph, frame))
     extent = shapely.union_all([layout.roads, layout.sidewalks]).envelope.buffer(150, join_style="mitre")
     ground = world.attachNewNode(_flat("sol", extent, 0.0, GROUND_COLOR))
+    ground.setTexture(texs["sol"])
     # Sol dessiné en premier, sans écrire la profondeur : la chaussée, quelques centimètres au-dessus,
     # ne scintille jamais avec lui, même vue de loin (précision du tampon de profondeur).
     ground.setBin("background", 0)
     ground.setDepthWrite(False)
 
-    footprints: dict[tuple[int, int], tuple[list[Polygon], list[float]]] = {}
+    footprints: dict[tuple[int, int], list[tuple[int, Polygon, float]]] = {}
+    building_polygons: list[Polygon] = []
     if buildings is not None:
         polys, heights = buildings
         keep_out = layout.roads.buffer(0.5)             # un bâtiment OSM qui empiète sur la chaussée est rogné
         shapely.prepare(keep_out)
-        for poly, height in zip(polys, heights):
+        for index, (poly, height) in enumerate(zip(polys, heights)):
             local = frame.geometry(poly)
             if keep_out.intersects(local):
                 local = local.difference(keep_out)
@@ -377,24 +567,38 @@ def build_world(graph: nx.MultiDiGraph, frame: WorldFrame, loader, catalog=None,
                 if part.area < 12:
                     continue
                 c = part.representative_point()
-                key = (math.floor(c.x / TILE_M), math.floor(c.y / TILE_M))
-                footprints.setdefault(key, ([], []))
-                footprints[key][0].append(part)
-                footprints[key][1].append(height)
+                footprints.setdefault(_tile_key(c.x, c.y), []).append((index, part, height))
+                building_polygons.append(part)
+
+    furniture: dict[tuple[int, int], list] = {}
+    for placement in street_furniture.placements(street_list, layout.roads, building_polygons):
+        furniture.setdefault(_tile_key(placement.x, placement.y), []).append(placement)
+    curbs: dict[tuple[int, int], list] = {}
+    for segment in curb_segments(layout.sidewalks):
+        curbs.setdefault(_tile_key((segment[0] + segment[2]) / 2, (segment[1] + segment[3]) / 2), []).append(segment)
 
     road_tiles = dict(tiles(layout.roads))
     side_tiles = dict(tiles(layout.sidewalks))
     mark_tiles = dict(tiles(layout.markings))
+    grass_tiles = dict(tiles(layout.islands))
     for key in sorted(set(road_tiles) | set(side_tiles) | set(footprints)):
         tile = world.attachNewNode(f"tuile_{key[0]}_{key[1]}")
         for name, parts, z, color in (("chaussee", road_tiles, ROAD_Z, ROAD_COLOR),
                                       ("trottoir", side_tiles, SIDEWALK_Z, SIDEWALK_COLOR),
                                       ("marquage", mark_tiles, MARKING_Z, MARKING_COLOR)):
-            if key in parts and (node := _flat(name, parts[key], z, color)) is not None:
+            if key in parts and (node := _flat(name, parts[key], z, color, textured=name != "marquage")) is not None:
                 part = tile.attachNewNode(node)
                 if name == "marquage":
                     part.setDepthOffset(2)      # posé sur la chaussée : toujours devant elle
-        if key in footprints and (node := _buildings_node(*footprints[key])) is not None:
+                else:
+                    part.setTexture(texs[name])
+        if key in grass_tiles and (node := _flat("gazon", grass_tiles[key], SIDEWALK_Z + 0.02, GRASS_COLOR)) is not None:
+            tile.attachNewNode(node).setTexture(texs["sol"])
+        if key in curbs and (node := _curbs_node(curbs[key])) is not None:
+            tile.attachNewNode(node)
+        for tex_key, node in _buildings_nodes(footprints.get(key, [])):
+            tile.attachNewNode(node).setTexture(texs[tex_key])
+        if key in furniture and (node := _furniture_node(furniture[key])) is not None:
             tile.attachNewNode(node)
         tile.flattenStrong()
 
@@ -411,5 +615,9 @@ def build_world(graph: nx.MultiDiGraph, frame: WorldFrame, loader, catalog=None,
 
     if cache_file is not None:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
-        world.writeBamFile(Filename.fromOsSpecific(str(cache_file)))
+        bam = BamFile()
+        bam.openWrite(Filename.fromOsSpecific(str(cache_file)))
+        bam.getWriter().setFileTextureMode(BamWriter.BTM_rawdata)   # textures générées : stockées dans le cache
+        bam.writeObject(world.node())
+        bam.close()
     return world

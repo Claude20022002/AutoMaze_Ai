@@ -19,6 +19,7 @@ import networkx as nx
 from simulator.contracts import CLASSES_FR, UNKNOWN
 from simulator.engine import Episode
 from simulator.render3d.catalog import Catalog, load_model
+from simulator.render3d.masks import no_shadow, only_on_main_view
 from simulator.render3d.world_mesh import LANE_OFFSET_M, ROAD_Z, WorldFrame, heading_deg, road_width
 from simulator.world.car import point_on_edge
 from simulator.world.obstacles import ObstacleState
@@ -76,7 +77,7 @@ class ObstacleView:
     """Un obstacle : son modèle 3D (choisi avec sa graine) et son étiquette de classification."""
 
     def __init__(self, parent, state: ObstacleState, graph: nx.MultiDiGraph, catalog: Catalog, loader,
-                 frame: WorldFrame, seed: int, font=None) -> None:
+                 frame: WorldFrame, seed: int, font=None, minimap=None) -> None:
         from panda3d.core import TextNode
 
         obstacle = state.obstacle
@@ -108,7 +109,11 @@ class ObstacleView:
         self.tag.setLightOff()
         self.tag.setDepthTest(False)
         self.tag.setBin("fixed", 10)
+        no_shadow(self.tag)
         self._shown_text = None
+        self.marker = minimap.obstacle_marker(self.root, QUIET) if minimap is not None else None
+        if minimap is not None:
+            only_on_main_view(self.tag)
 
     def _play(self, name: str) -> None:
         if self.actor is not None and self.animation != name:
@@ -149,11 +154,10 @@ class ObstacleView:
 
     def _update_tag(self, camera_pos) -> None:
         state = self.state
-        far = (self.root.getPos() - camera_pos).length() > LABEL_DISTANCE_M
-        if far:
+        if (self.root.getPos() - camera_pos).length() > LABEL_DISTANCE_M:
             self.tag.hide()
-            return
-        self.tag.show()
+        else:
+            self.tag.show()
         if state.predicted_label is None:
             content, color = "?", QUIET
         else:
@@ -164,6 +168,8 @@ class ObstacleView:
             self.text.setText(content)
             self.text.setTextColor(*color, 1)
             self._shown_text = content
+            if self.marker is not None:
+                self.marker.setColor(*color, 1)
 
     def destroy(self) -> None:
         if self.actor is not None:
@@ -202,3 +208,4 @@ class RouteLine:
         self.node = self.parent.attachNewNode(lines.create())
         self.node.setLightOff()
         self.node.setDepthOffset(3)
+        no_shadow(self.node)

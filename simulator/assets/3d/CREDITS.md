@@ -18,7 +18,7 @@ Licence CC-BY 3.0 : https://creativecommons.org/licenses/by/3.0/
 
 | Auteur | Source | Fichiers | Licence vérifiée |
 | --- | --- | --- | --- |
-| Quaternius | Lowpoly Cars, https://quaternius.itch.io/lowpoly-cars (zip « Realistic Car Pack - Nov 2018 », OBJ convertis en .glb par Blender 5.2) | `quaternius/lowpoly-cars/*.glb` | `License.txt` du zip : CC0 1.0 |
+| Quaternius | Lowpoly Cars, https://quaternius.itch.io/lowpoly-cars (zip « Realistic Car Pack - Nov 2018 », OBJ convertis en .glb par Blender 5.2 ; `petit-taxi-rouge.glb` : taxi recoloré en rouge par nous) | `quaternius/lowpoly-cars/*.glb` | `License.txt` du zip : CC0 1.0 |
 | Quaternius | Public Transport Pack, https://quaternius.com/packs/publictransport.html | `quaternius/public-transport/*.glb` | page du pack : CC0. OBJ issus de la version reconditionnée par « Eclair Assets » (non officielle), sans couleurs : couleurs ajoutées par nous (`build_assets.py`) |
 | Quaternius | Truck, https://poly.pizza/m/cXw6oiFtZ8 | `polypizza/truck/truck-cXw6oiFtZ8.glb` | page Poly Pizza : CC0 |
 | Quaternius | Man, https://poly.pizza/m/HMnuH5geEG | `polypizza/person/man-HMnuH5geEG.glb` | page Poly Pizza : CC0 (identifié par le nom et les animations) |

@@ -59,11 +59,18 @@ Les chemins `render3d/*` sont la cible : ces fichiers sont à créer.
 ```text
 simulator/
 ├── render3d/                 vue 3D (seul dossier qui importe panda3d)
-│   ├── app.py                Simulator3D : ShowBase, boucle à pas fixe, caméras, touches, capture --screenshot
-│   ├── world_mesh.py         sol, chaussées, trottoirs, marquages, bâtiments, signalisation (skill osm-to-3d)
+│   ├── app.py                Simulator3D : mise en page, boucle à pas fixe, caméras, touches, --screenshot
+│   ├── world_mesh.py         sol, chaussées, trottoirs et bordures, marquages et zébras, îlots, bâtiments,
+│   │                         mobilier, signalisation (skill osm-to-3d)
+│   ├── textures.py           textures procédurales : façades par étage, vitrines, bitume, dalles, sol
+│   ├── street_furniture.py   palmiers, arbres, lampadaires (maillages procéduraux) et leurs emplacements
+│   ├── environment.py        dôme de ciel, soleil et ombres autour de la voiture, lumière d'appoint, brume
 │   ├── buildings.py          bâtiments OSM : téléchargement et lecture de assets/casablanca_buildings.npz
 │   ├── actors.py             EgoCar, ObstacleView (comportement selon la vraie classe), RouteLine
-│   ├── hud.py                bandeau du classifieur, état, vue caméra (image classée), crédits
+│   ├── hud.py                SidePanel : classifieur, état, vue caméra (image classée), probabilités, crédits
+│   ├── dashboard.py          tableau de bord conducteur : compteur, état de conduite, objet devant, itinéraire
+│   ├── minimap.py            minicarte : seconde caméra orthographique, orientée dans le sens de marche
+│   ├── masks.py              masques de caméra : vue principale, minicarte, carte d'ombre
 │   ├── catalog.py            catalogue des modèles et normalisation (skill asset-pipeline)
 │   ├── build_assets.py       production des .glb depuis les téléchargements
 │   ├── blender_to_glb.py     script exécuté par Blender
@@ -74,7 +81,31 @@ tests/simulator/render3d/     catalogue, géométrie pure, vraie carte, capture 
 ```
 
 Pas encore faits : capteur caméra RGB 3D et recadrage (mode `--perception render`, recettes dans
-`panda3d-recipes`), trafic d'ambiance, réglages d'heure et de météo, zébras des passages piétons.
+`panda3d-recipes`), trafic d'ambiance, réglages d'heure et de météo, parcs OSM (`leisure=park`).
+
+## Mise en page et interface
+
+- La vue 3D n'occupe que sa zone (`DisplayRegion` de la caméra principale) : colonne de droite pour le panneau
+  (`hud.PANEL_W` = 400 px), bas de la zone 3D pour le tableau de bord en vue conducteur (`app.DASHBOARD_H`).
+  Rien ne recouvre la scène. `compute_layout` (testée) calcule les zones ; `apply_layout` les réapplique à chaque
+  image si la fenêtre change de taille, et corrige le format de la lentille (ShowBase le remet à celui de la
+  fenêtre entière).
+- Interface en `pixel2d` (pixels, origine en haut à gauche, z négatif vers le bas), police DejaVu Sans (accents).
+- Vue conducteur : carrosserie de l'ego cachée pour la caméra principale seulement (elle reste sur la minicarte),
+  caméra à la place du conducteur. Le tableau de bord lit l'épisode (`driving_state`, `object_ahead`,
+  `remaining_m`, testées sans affichage).
+- Masques (`masks.py`) : la ligne d'itinéraire, les étiquettes et les repères ne projettent pas d'ombre ; les
+  repères ne sont visibles que sur la minicarte ; les étiquettes et le ciel seulement dans la vue principale.
+
+## Direction visuelle (références)
+
+- Casablanca, « ville blanche » : façades blanches et crème Art Déco et mauresques, quelques pastels, boulevards
+  bordés de palmiers, petits taxis rouges. D'où `world_mesh.BUILDING_COLORS` (pondérées), palmiers sur les axes
+  `primary` et `secondary`, et la variante `petit-taxi-rouge.glb`.
+- Villes procédurales low-poly : façades texturées par étage et par travée (motifs répétés, jamais coupés),
+  rez-de-chaussée commerçant, ombrage doux. Rester low-poly et non photoréaliste : le GPU est intégré.
+- Simulateurs de conduite : combiné d'instruments (compteur analogique), distance au véhicule devant, consigne
+  en cours. Le verdict est toujours écrit en toutes lettres, pas seulement en couleur.
 
 ```powershell
 python -m simulator.render3d.app                                   # fenêtre, classifieur simulation
@@ -102,14 +133,15 @@ Touches : Espace pause · → pas à pas · ↑/↓ vitesse · V vue (poursuite,
 - `episode.last_detection` alimente la vue caméra du HUD : l'image de la banque d'obstacles, jamais le rendu 3D.
 - Nouvel épisode : `ObstacleView.destroy()` (y compris `Actor.cleanup()`), la ville reste en place.
 
-## Performances mesurées (GPU AMD intégré, 1440×860, hors écran)
+## Performances mesurées (GPU AMD intégré, 1440×860, hors écran, ombres activées)
 
-- Environ 15 s de construction de la ville au premier lancement (puis cache .bam, environ 3 s). Cache invalidé par le
-  hash de la carte, des bâtiments et `world_mesh.MESH_VERSION`, à incrémenter à chaque changement de géométrie.
-- 179 000 triangles, 241 Geoms (tuiles de 200 m aplaties). Vue poursuite environ 195 images/s, conducteur
-  environ 170, dessus environ 400. En fenêtre, la synchronisation verticale limite à la fréquence de l'écran.
-- Pas de simplepbr ni d'ombres : les modèles glTF s'affichent correctement avec l'éclairage fixe (soleil et ambiante).
-  `--msaa` active l'anticrénelage.
+- Environ 30 s de construction de la ville au premier lancement, puis 5 s avec le cache .bam (environ 85 Mo,
+  textures comprises). Cache invalidé par le hash de la carte, des bâtiments et `world_mesh.MESH_VERSION`, à
+  incrémenter à chaque changement de géométrie, de couleur ou de texture.
+- Environ 85 images/s en vue poursuite, 75 en vue conducteur, 150 vue de dessus. Éclairage par pixel
+  (`setShaderAuto`), ombres 2048 px sur 180 m autour de la voiture. `--no-shadows` si la machine est plus faible.
+- Les objets mobiles (`dynamique`) gardent l'éclairage classique (`setShaderOff`) : l'ombrage par pixel faisait des
+  rayures (« shadow acne ») sur leurs petites facettes. Ils projettent quand même leur ombre.
 
 ## Vérifier une modification
 

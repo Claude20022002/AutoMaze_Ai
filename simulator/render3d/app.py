@@ -2,33 +2,55 @@
 
     python -m simulator.render3d.app                                  # classifieur « simulation »
     python -m simulator.render3d.app --classifier ours --episode 3    # notre CNN, épisode n° 3
+    python -m simulator.render3d.app --view conducteur                # poste de conduite et tableau de bord
     python -m simulator.render3d.app --screenshot capture.png         # image après 60 pas, sans fenêtre
 
 Commandes : Espace pause · → pas à pas · ↑/↓ vitesse · V vue (poursuite, conducteur, dessus) ·
 R recommencer · N épisode suivant · Échap quitter.
 
+Mise en page : la vue 3D occupe la partie gauche de la fenêtre, le panneau d'information la colonne de droite
+(rien ne recouvre la scène). En vue conducteur, un tableau de bord occupe le bas de la zone 3D.
+
 La logique est celle de ``simulator.engine`` : mêmes épisodes, mêmes décisions et mêmes journaux qu'en mode
 sans affichage. La 3D ne fait que lire l'état. Le classifieur reçoit les images de la banque d'obstacles,
-jamais le rendu 3D. Premier lancement : la ville est construite (environ 15 s) puis mise en cache.
+jamais le rendu 3D. Premier lancement : la ville est construite (une trentaine de secondes) puis mise en cache.
 """
 
 from __future__ import annotations
 
 import argparse
-import math
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from simulator.config import MAP_FILE, SimConfig
 from simulator.engine import Episode
 
 VIEWS = ("poursuite", "conducteur", "dessus")
-SKY = (0.74, 0.84, 0.94)
+DASHBOARD_H = 190            # hauteur du tableau de bord (vue conducteur), en pixels
 
 
 def _size(text: str) -> tuple[int, int]:
     width, height = text.lower().split("x")
     return int(width), int(height)
+
+
+@dataclass(frozen=True)
+class Layout:
+    """Zones de la fenêtre, en fractions (gauche, droite, bas, haut) comme ``DisplayRegion.setDimensions``."""
+
+    scene: tuple[float, float, float, float]
+    scene_px: tuple[int, int]               # largeur, hauteur de la zone 3D en pixels
+    dashboard_px: tuple[int, int, int, int]  # x, y du haut, largeur, hauteur (pixels depuis le haut) ; hauteur 0 = aucun
+
+
+def compute_layout(width: int, height: int, panel_w: int, driver_view: bool) -> Layout:
+    """Vue 3D à gauche du panneau ; en vue conducteur, tableau de bord sous la vue 3D."""
+    scene_w = max(1, width - panel_w)
+    dash_h = DASHBOARD_H if driver_view else 0
+    scene_h = max(1, height - dash_h)
+    return Layout(scene=(0.0, scene_w / width, dash_h / height, 1.0), scene_px=(scene_w, scene_h),
+                  dashboard_px=(0, scene_h, scene_w, dash_h))
 
 
 class Simulator3D:
@@ -52,7 +74,10 @@ class Simulator3D:
         from simulator.render3d import buildings
         from simulator.render3d.actors import EgoCar, RouteLine
         from simulator.render3d.catalog import load_catalog
-        from simulator.render3d.hud import Hud, accented_font
+        from simulator.render3d.dashboard import Dashboard
+        from simulator.render3d.environment import Environment
+        from simulator.render3d.hud import SidePanel, accented_font
+        from simulator.render3d.minimap import MiniMap
         from simulator.render3d.world_mesh import CACHE_DIR, WorldFrame, build_world, cache_key
         from simulator.world.road_map import load_map
 
@@ -65,7 +90,11 @@ class Simulator3D:
         self.frame = WorldFrame.from_graph(self.graph)
         self.font = accented_font(base.loader)
 
-        self._setup_scene()
+        base.disableMouse()
+        base.camLens.setFov(60)
+        base.camLens.setNearFar(0.3, 1200)
+        base.win.setClearColor((0.10, 0.11, 0.13, 1))            # fond des zones d'interface
+        self.environment = Environment(base, shadows=not args.no_shadows)
         cache = CACHE_DIR / f"ville_{cache_key(MAP_FILE, buildings.BUILDINGS_FILE)}.bam"
         if not cache.exists():
             print("Construction de la ville 3D (une seule fois, mise en cache)…")
@@ -75,14 +104,21 @@ class Simulator3D:
         world.reparentTo(base.render)
 
         self.dynamic = base.render.attachNewNode("dynamique")
+        # Les objets mobiles projettent des ombres mais n'en reçoivent pas : sur leurs petites facettes, l'ombrage
+        # par pixel produit des rayures (« shadow acne »). Ils gardent l'éclairage classique.
+        self.dynamic.setShaderOff(1)
         self.ego = EgoCar(self.dynamic, self.catalog, base.loader, self.frame)
         self.route_line = RouteLine(self.dynamic, self.graph, self.frame)
-        self.hud = Hud(base, self.font)
+        self.panel = SidePanel(base, self.font)
+        self.dashboard = Dashboard(base, self.font, self.config.sensor_range_m)
+        self.minimap = MiniMap(base, self.ego.node)
         self.view = args.view
         self.time_factor, self.paused, self.budget = args.time_factor, False, 0.0
         self.episode_number = args.episode
         self.obstacle_views = []
+        self._layout_key = None
         self.new_episode()
+        self.apply_layout()
 
         if not offscreen:
             for key, action in {"space": self.toggle_pause, "arrow_right": self.single_step,
@@ -92,26 +128,27 @@ class Simulator3D:
                 base.accept(key, action)
             base.taskMgr.add(self.tick, "sim_tick")
 
-    # ------------------------------------------------------------------ scène
-    def _setup_scene(self) -> None:
-        from panda3d.core import AmbientLight, DirectionalLight, Fog
+    # ------------------------------------------------------------------ mise en page
+    def apply_layout(self, force: bool = False) -> None:
+        """Zones d'affichage selon la taille de la fenêtre et la vue. Rappelé à chaque image (redimensionnement)."""
+        from simulator.render3d.hud import PANEL_W
 
-        base = self.base
-        base.disableMouse()
-        base.setBackgroundColor(*SKY, 1)
-        base.camLens.setFov(60)
-        base.camLens.setNearFar(0.3, 1200)
-        sun = base.render.attachNewNode(DirectionalLight("soleil"))
-        sun.node().setColor((0.85, 0.82, 0.74, 1))
-        sun.setHpr(-35, -55, 0)
-        ambient = base.render.attachNewNode(AmbientLight("ambiante"))
-        ambient.node().setColor((0.55, 0.56, 0.62, 1))
-        base.render.setLight(sun)
-        base.render.setLight(ambient)
-        fog = Fog("brume")
-        fog.setColor(*SKY)
-        fog.setExpDensity(0.0022)
-        base.render.setFog(fog)
+        width, height = self.base.win.getXSize(), self.base.win.getYSize()
+        driver = self.view == "conducteur"
+        key = (width, height, driver)
+        layout = compute_layout(width, height, PANEL_W, driver)
+        aspect = layout.scene_px[0] / layout.scene_px[1]
+        # ShowBase remet le format de la fenêtre entière à chaque redimensionnement : on le corrige ici.
+        if key == self._layout_key and not force and abs(self.base.camLens.getAspectRatio() - aspect) < 1e-3:
+            return
+        self._layout_key = key
+        self.base.camNode.getDisplayRegion(0).setDimensions(*layout.scene)
+        self.base.camLens.setAspectRatio(aspect)
+        x, top, side = self.panel.layout(width, height)
+        self.minimap.set_region(x / width, (x + side) / width, 1 - (top + side) / height, 1 - top / height)
+        dx, dy, dw, dh = layout.dashboard_px
+        self.dashboard.layout(dx, dy, dw, dh)
+        self.dashboard.show(driver)
 
     # ------------------------------------------------------------------ épisodes
     def new_episode(self, number: int | None = None) -> None:
@@ -124,7 +161,8 @@ class Simulator3D:
         self.episode = Episode(self.graph, self.classifier, self.config, self.episode_number, image_for=self.images)
         seed = self.config.seed * 100_003 + self.episode_number
         self.obstacle_views = [ObstacleView(self.dynamic, state, self.graph, self.catalog, self.base.loader,
-                                            self.frame, seed, self.font) for state in self.episode.obstacles]
+                                            self.frame, seed, self.font, self.minimap)
+                               for state in self.episode.obstacles]
         self.previous = (self.episode.car.position_xy(), self.episode.car.heading())
         self.budget = 0.0
 
@@ -162,6 +200,9 @@ class Simulator3D:
         return Task.cont
 
     def render_state(self) -> None:
+        from simulator.render3d.masks import MAIN_MASK
+
+        self.apply_layout()
         episode = self.episode
         alpha = 1.0 if (self.paused or episode.done) else min(self.budget, 1.0)
         (px, py), (hx, hy) = self.previous
@@ -172,23 +213,33 @@ class Simulator3D:
         position = (px + (cx - px) * alpha, py + (cy - py) * alpha)
         heading = (hx + (hx2 - hx) * alpha, hy + (hy2 - hy) * alpha)
         self.ego.place(position, heading)
+        # Vue conducteur : la carrosserie de l'ego masquerait la route (elle reste visible sur la minicarte).
+        (self.ego.node.hide if self.view == "conducteur" else self.ego.node.show)(MAIN_MASK)
         self._place_camera()
+        self.environment.follow(self.ego.node, self.base.camera)
+        self.minimap.update()
 
         t = episode.step_count - 1 + alpha if not episode.done else float(episode.step_count)
         camera_pos = self.base.camera.getPos(self.base.render)
         for view in self.obstacle_views:
             view.update(t, camera_pos)
         self.route_line.update(episode)
-        self.hud.update(episode, self.view, self.time_factor, self.paused, self._street())
+        street = self._street()
+        self.panel.update(episode, self.view, self.time_factor, self.paused, street)
+        if self.view == "conducteur":
+            from simulator.render3d.hud import latin
+
+            self.dashboard.update(episode, latin(street))
 
     def _place_camera(self) -> None:
         cam, car = self.base.camera, self.ego.node
+        half = self.catalog.ego.length_m / 2
         if self.view == "poursuite":
             cam.setPos(car, 0, -11, 4.5)
             cam.lookAt(car, 0, 8, 1.2)
         elif self.view == "conducteur":
-            cam.setPos(car, -0.35, 0.2, 1.25)
-            cam.lookAt(car, -0.35, 25, 1.0)
+            cam.setPos(car, -0.35, half - 1.9, 1.2)     # place du conducteur (on roule à droite : volant à gauche)
+            cam.lookAt(car, -0.35, half + 30, 0.9)
         else:
             cam.setPos(car, 0, -30, 110)
             cam.lookAt(car, 0, 12, 0)
@@ -212,6 +263,7 @@ class Simulator3D:
         self.budget = 1.0
         self.render_state()
         self.base.taskMgr.step()                       # anime les personnages (Actor) une fois
+        self.render_state()
         path.parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(_capture(self.base)).save(path)
         return path
@@ -225,6 +277,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--time-factor", type=float, default=1.0, help="1 = temps réel (↑/↓ pour changer)")
     parser.add_argument("--size", type=_size, default=(1440, 860), help="taille de la fenêtre, par exemple 1600x900")
     parser.add_argument("--view", choices=VIEWS, default="poursuite", help="vue au démarrage (touche V)")
+    parser.add_argument("--no-shadows", action="store_true", help="sans ombres portées (si l'affichage saccade)")
     parser.add_argument("--msaa", action="store_true", help="anticrénelage (plus joli, plus lent sur GPU intégré)")
     parser.add_argument("--screenshot", type=Path, help="enregistre une image au lieu d'ouvrir la fenêtre")
     parser.add_argument("--steps", type=int, default=60, help="pas simulés avant la capture")

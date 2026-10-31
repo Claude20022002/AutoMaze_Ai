@@ -27,6 +27,9 @@
        "author": "Quaternius", "license": "CC0", "url": "https://quaternius.itch.io/lowpoly-cars"},
       {"model": "quaternius/lowpoly-cars/taxi.glb", "length_m": 4.5, "heading": 180, "title": "Taxi (Lowpoly Cars)",
        "author": "Quaternius", "license": "CC0", "url": "https://quaternius.itch.io/lowpoly-cars"},
+      {"model": "quaternius/lowpoly-cars/petit-taxi-rouge.glb", "length_m": 4.3, "heading": 180,
+       "title": "Petit taxi rouge (Taxi recoloré, Lowpoly Cars)", "author": "Quaternius", "license": "CC0",
+       "url": "https://quaternius.itch.io/lowpoly-cars"},
       {"model": "quaternius/lowpoly-cars/sports-car.glb", "length_m": 4.4, "heading": 180, "title": "SportsCar (Lowpoly Cars)",
        "author": "Quaternius", "license": "CC0", "url": "https://quaternius.itch.io/lowpoly-cars"}
     ],
