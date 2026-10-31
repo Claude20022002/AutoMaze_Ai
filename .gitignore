@@ -225,3 +225,4 @@ data/
 models/*.pt
 models/*.pth
 reports/verification_*.txt
+reports/simulator/

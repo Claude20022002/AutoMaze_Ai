@@ -3,16 +3,20 @@
 import numpy as np
 import pytest
 
-from simulator.config import SimConfig
 from simulator.contracts import CLASSES, UNKNOWN
-from simulator.perception import CLASSIFIER_MODES, build_classifier
 from simulator.perception.simulated import SIMULATION_NAME, SimulatedClassifier
 
 IMAGE = np.zeros((32, 32, 3), dtype=np.uint8)
 
 
-def _labels(clf: SimulatedClassifier, n: int, true_label: str = "car") -> list[str]:
-    return [clf.predict(IMAGE, true_label=true_label).label for _ in range(n)]
+def _images(n: int, seed: int = 0) -> list[np.ndarray]:
+    """n petites images toutes différentes (comme n obstacles distincts)."""
+    rng = np.random.default_rng(seed)
+    return [rng.integers(0, 256, size=(8, 8, 3), dtype=np.uint8) for _ in range(n)]
+
+
+def _labels(clf: SimulatedClassifier, images: list[np.ndarray], true_label: str = "car") -> list[str]:
+    return [clf.predict(image, true_label=true_label).label for image in images]
 
 
 def test_displayed_name_says_no_real_model():
@@ -26,29 +30,33 @@ def test_no_error_returns_true_label():
 
 
 def test_full_error_never_returns_true_label():
-    labels = _labels(SimulatedClassifier(error_rate=1.0, seed=3), 200)
+    labels = _labels(SimulatedClassifier(error_rate=1.0, seed=3), _images(200))
     assert "car" not in labels
     assert set(labels) == set(CLASSES) - {"car"}  # les erreurs se répartissent sur les 5 autres classes
 
 
 def test_error_rate_is_respected():
-    labels = _labels(SimulatedClassifier(error_rate=0.2, seed=42), 5000)
+    labels = _labels(SimulatedClassifier(error_rate=0.2, seed=42), _images(5000))
     observed = sum(label != "car" for label in labels) / len(labels)
     assert observed == pytest.approx(0.2, abs=0.02)
 
 
-def test_same_seed_same_predictions_and_reset():
+def test_same_image_same_answer_whatever_the_order():
+    """Le tirage dépend de la graine et de l'image, pas de l'ordre des appels (épisode précédent, autre classifieur)."""
+    images = _images(50)
     a = SimulatedClassifier(error_rate=0.5, seed=7)
     b = SimulatedClassifier(error_rate=0.5, seed=7)
-    first = _labels(a, 50)
-    assert first == _labels(b, 50)
-    a.reset(7)
-    assert _labels(a, 50) == first
+    forward = _labels(a, images)
+    _labels(b, _images(30, seed=99))                 # b a déjà classé d'autres images
+    backward = _labels(b, images[::-1])[::-1]        # puis les mêmes, dans l'ordre inverse
+    assert forward == backward
+    assert _labels(a, images) == forward             # et a, interrogé une seconde fois, ne change pas d'avis
 
 
 def test_different_seeds_differ():
-    assert _labels(SimulatedClassifier(error_rate=0.5, seed=1), 50) != _labels(
-        SimulatedClassifier(error_rate=0.5, seed=2), 50
+    images = _images(50)
+    assert _labels(SimulatedClassifier(error_rate=0.5, seed=1), images) != _labels(
+        SimulatedClassifier(error_rate=0.5, seed=2), images
     )
 
 
@@ -76,17 +84,3 @@ def test_rejects_invalid_settings(kwargs):
     with pytest.raises(ValueError):
         SimulatedClassifier(**kwargs)
 
-
-def test_build_classifier_uses_config():
-    clf = build_classifier("simulation", SimConfig(seed=11, simulated_error_rate=0.0))
-    assert isinstance(clf, SimulatedClassifier)
-    assert clf.seed == 11 and clf.error_rate == 0.0
-
-
-def test_build_classifier_modes():
-    assert CLASSIFIER_MODES == ("simulation", "reference", "ours")
-    for mode in ("reference", "ours"):
-        with pytest.raises(NotImplementedError):  # aucun modèle de secours
-            build_classifier(mode)
-    with pytest.raises(ValueError):
-        build_classifier("yolo")

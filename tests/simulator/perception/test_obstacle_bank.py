@@ -32,6 +32,13 @@ def test_placeholder_respects_contract(label):
     assert (image == 255).all(axis=2).any()                 # du texte blanc est bien écrit
 
 
+def test_placeholder_variant_is_reproducible_and_light():
+    base = placeholder_image("car").astype(int)
+    a, b, c = placeholder_image("car", variant=1), placeholder_image("car", variant=1), placeholder_image("car", variant=2)
+    assert np.array_equal(a, b) and not np.array_equal(a, c)
+    assert np.abs(a.astype(int) - base).max() <= 3
+
+
 def test_placeholder_colors_are_distinct():
     assert len(set(PLACEHOLDER_COLORS.values())) == len(CLASSES)
     assert set(PLACEHOLDER_COLORS) == set(CLASSES)

@@ -8,6 +8,7 @@ avant que notre CNN existe. Ses probabilités ne sont pas des sorties de modèle
 from __future__ import annotations
 
 import time
+import zlib
 
 import numpy as np
 
@@ -22,7 +23,7 @@ _DEFAULTS = SimConfig()
 
 
 class SimulatedClassifier(Classifier):
-    """Classifieur sans modèle, reproductible à partir de sa graine."""
+    """Classifieur sans modèle : sa réponse ne dépend que de la graine, de l'image et de la vraie classe."""
 
     name = SIMULATION_NAME
 
@@ -46,12 +47,7 @@ class SimulatedClassifier(Classifier):
         self.error_rate = float(error_rate)
         self.confidence = float(confidence)
         self.threshold = check_threshold(threshold)
-        self.reset(seed)
-
-    def reset(self, seed: int) -> None:
-        """Repart d'une graine : à appeler au début de chaque épisode pour le rendre reproductible."""
         self.seed = seed
-        self._rng = np.random.default_rng(seed)
 
     def predict(self, image_rgb: np.ndarray, true_label: str | None = None) -> Prediction:
         start = time.perf_counter()
@@ -59,12 +55,22 @@ class SimulatedClassifier(Classifier):
         if true_label not in CLASSES:
             raise ValueError(f"le mode simulation a besoin de la vraie classe, reçu {true_label!r}")
 
+        # Tirage calculé à partir de la graine et de l'image, et non d'un générateur partagé :
+        # la même image donne toujours la même réponse, quel que soit l'ordre des appels
+        # (épisode précédent, autre classifieur comparé), comme le ferait un vrai modèle.
+        rng = np.random.default_rng(_image_seed(self.seed, image_rgb, true_label))
         chosen = true_label
-        if self._rng.random() < self.error_rate:
+        if rng.random() < self.error_rate:
             others = [c for c in CLASSES if c != true_label]
-            chosen = others[self._rng.integers(len(others))]
+            chosen = others[rng.integers(len(others))]
 
         rest = (1.0 - self.confidence) / (len(CLASSES) - 1)
         probs = [self.confidence if c == chosen else rest for c in CLASSES]
         infer_ms = (time.perf_counter() - start) * 1000.0
         return make_prediction(probs, self.threshold, infer_ms)
+
+
+def _image_seed(seed: int, image_rgb: np.ndarray, true_label: str) -> list[int]:
+    """Graine tirée de l'image elle-même : même graine + même image = même tirage."""
+    h, w = image_rgb.shape[:2]
+    return [seed, zlib.crc32(np.ascontiguousarray(image_rgb).tobytes()), h, w, CLASSES.index(true_label)]

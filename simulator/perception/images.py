@@ -8,6 +8,7 @@ des canaux dégrade le modèle sans aucun message d'erreur (piège de la section
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 
@@ -17,15 +18,17 @@ from PIL import Image, ImageDraw, ImageFont
 from simulator.contracts import CLASSES, CLASSES_FR
 
 PLACEHOLDER_SIZE = 128  # côté des images de remplacement, en pixels
+PLACEHOLDER_NOISE = 3   # amplitude du bruit qui distingue deux images de remplacement de la même classe
 
-# Une couleur de fond par classe, bien distinctes, pour reconnaître l'image de remplacement d'un coup d'œil.
+# Une couleur de fond par classe : les mêmes que theme.CLASS_COLORS (carte, journal, vue caméra).
+# Recopiées ici pour que la perception n'importe pas pygame ; test_camera_panel vérifie qu'elles concordent.
 PLACEHOLDER_COLORS: dict[str, tuple[int, int, int]] = {
-    "person": (214, 39, 40),
-    "bicycle": (44, 160, 44),
-    "car": (31, 119, 180),
-    "motorcycle": (255, 127, 14),
-    "bus": (148, 103, 189),
-    "truck": (140, 86, 75),
+    "person": (214, 72, 64),
+    "bicycle": (46, 140, 74),
+    "car": (37, 99, 200),
+    "motorcycle": (140, 82, 190),
+    "bus": (222, 134, 26),
+    "truck": (120, 90, 60),
 }
 
 
@@ -45,11 +48,16 @@ def load_rgb(path: Path) -> np.ndarray:
         return np.asarray(img.convert("RGB"), dtype=np.uint8).copy()
 
 
-def placeholder_image(label: str, size: int = PLACEHOLDER_SIZE) -> np.ndarray:
+def placeholder_image(label: str, size: int = PLACEHOLDER_SIZE,
+                      variant: int | Sequence[int] | None = None) -> np.ndarray:
     """Image de remplacement : fond de la couleur de la classe, nom de la classe et mention « remplacement ».
 
     Ce n'est pas une donnée du jeu de test : la mention est écrite sur l'image pour qu'on ne la prenne
     jamais pour un vrai recadrage dans une démo ou une capture d'écran.
+
+    variant : graine d'un léger bruit (± PLACEHOLDER_NOISE niveaux, invisible à l'œil). Deux obstacles de la même
+        classe ont ainsi deux images différentes, comme deux vraies photos : sinon, un classifieur dont la réponse
+        dépend de l'image (mode simulation compris) donnerait la même réponse pour tous les obstacles d'une classe.
     """
     if label not in CLASSES:
         raise ValueError(f"classe inconnue : {label!r}")
@@ -57,7 +65,11 @@ def placeholder_image(label: str, size: int = PLACEHOLDER_SIZE) -> np.ndarray:
     draw = ImageDraw.Draw(img)
     _draw_centered(draw, CLASSES_FR[label], size, y=size * 0.42, font_size=max(10, size // 7))
     _draw_centered(draw, "remplacement", size, y=size * 0.70, font_size=max(8, size // 12))
-    return np.asarray(img, dtype=np.uint8).copy()
+    pixels = np.asarray(img, dtype=np.uint8).copy()
+    if variant is None:
+        return pixels
+    noise = np.random.default_rng(variant).integers(-PLACEHOLDER_NOISE, PLACEHOLDER_NOISE + 1, size=pixels.shape)
+    return np.clip(pixels.astype(np.int16) + noise, 0, 255).astype(np.uint8)
 
 
 @lru_cache(maxsize=1)
