@@ -1,0 +1,38 @@
+% Calendrier du 4 novembre au 16 décembre 2026.
+% Les dates s'écrivent en nombre de jours depuis le 4 novembre :
+% 11 nov. = 7, 13 nov. = 9, 14 nov. = 10, 18 nov. = 14, 20 nov. = 16, 25 nov. = 21,
+% 26 nov. = 22, 2 déc. = 28, 9 déc. = 35, 11 déc. = 37, 16 déc. = 42.
+\begin{tikzpicture}[x=0.205cm, y=-0.62cm]
+  \def\depart{21}     % décalage de l'axe du temps par rapport aux noms (en jours d'échelle)
+
+  % Barre : \tache{ligne}{début}{fin}{nom}{dates}
+  \newcommand{\tache}[5]{
+    \node[anchor=west, font=\small] at (0,#1) {#4};
+    \fill[black!18, draw=black!60, rounded corners=2pt] (\depart+#2,#1-0.22) rectangle (\depart+#3,#1+0.22);
+    \node[anchor=west, font=\scriptsize, text=black!70, fill=white, inner sep=1.5pt] at (\depart+#3+0.5,#1) {#5};
+  }
+  % Jalon : \jalon{ligne}{date}{nom}{dates}{couleur}
+  \newcommand{\jalon}[5]{
+    \node[anchor=west, font=\small] at (0,#1) {#3};
+    \fill[#5] (\depart+#2,#1-0.26) -- ++(0.9,0.26) -- ++(-0.9,0.26) -- ++(-0.9,-0.26) -- cycle;
+    \node[anchor=west, font=\scriptsize, text=black!70, fill=white, inner sep=1.5pt] at (\depart+#2+1.2,#1) {#4};
+  }
+
+  % Axe du temps, par semaine
+  \foreach \jour/\texte in {0/4 nov., 7/11 nov., 14/18 nov., 21/25 nov., 28/2 déc., 35/9 déc., 42/16 déc.} {
+    \draw[black!15] (\depart+\jour,0.3) -- (\depart+\jour,10.5);
+    \node[font=\scriptsize, text=black!70] at (\depart+\jour,-0.05) {\texte};
+  }
+  \draw[black!60] (\depart,0.3) -- (\depart+42,0.3);
+
+  \jalon{1}{0}{Go/noGo (séance 1)}{4 nov.}{black!65}
+  \tache{2}{0}{14}{Données et recadrages}{4 au 18 nov.}
+  \tache{3}{7}{21}{Modèles classiques}{11 au 25 nov.}
+  \jalon{4}{9}{Démo du simulateur}{13 nov.}{black!65}
+  \tache{5}{10}{16}{Référence, si accord}{14 au 20 nov.}
+  \tache{6}{14}{35}{CNN de zéro}{18 nov. au 9 déc.}
+  \jalon{7}{21}{Mi-parcours (séance 2)}{25 nov.}{black!65}
+  \tache{8}{22}{37}{Évaluation, branchement}{26 nov. au 11 déc.}
+  \jalon{9}{35}{\textbf{Modèle figé}}{\textbf{9 déc.}}{accent}
+  \jalon{10}{42}{Soutenance}{16 déc.}{black!65}
+\end{tikzpicture}

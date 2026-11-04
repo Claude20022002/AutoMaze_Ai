@@ -1,0 +1,35 @@
+\section{Analyse et conception}
+\label{sec:conception}
+
+Le système se compose de deux parties séparées : la chaîne du modèle, sur Colab, et le simulateur, en local. Le simulateur ne réentraîne jamais le modèle : il charge seulement les poids et les métadonnées (figure~\ref{fig:architecture}).
+
+\begin{figure}[H]
+  \centering
+  \input{figures/architecture}
+  \caption{Architecture : le simulateur ne dépend du modèle que par ses poids et ses métadonnées.}
+  \label{fig:architecture}
+\end{figure}
+
+Les trois classifieurs du simulateur respectent le même contrat : ils reçoivent une image et renvoient une classe, un score et 6 probabilités. On peut ainsi les échanger sans modifier la navigation.
+
+\textbf{Analyse fonctionnelle.} Le modèle reçoit le recadrage d'un objet et renvoie une classe et un score. Sous un seuil de confiance choisi sur la validation, le simulateur affiche \og Inconnu \fg{} et la voiture s'arrête par prudence.
+
+\textbf{Acteurs.} L'équipe prépare les données, entraîne et évalue les modèles. L'encadrant valide les choix, puis le jury juge les résultats et la démonstration.
+
+\subsection*{Règles de décision proposées}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{4.2cm}Y}
+  \toprule
+  \textbf{Classe prédite} & \textbf{Décision} & \textbf{Effet sur l'itinéraire} \\
+  \midrule
+  Personne & S'arrêter et attendre & Tronçon bloqué quelques pas, puis la voiture repart \\
+  Vélo, moto & Ralentir & Coût du tronçon multiplié \\
+  Voiture & Contourner & Tronçon bloqué, nouveau calcul \\
+  Bus, camion & Contourner largement & Tronçon bloqué, tronçons voisins pénalisés, nouveau calcul \\
+  Inconnu & Arrêt prudent & Tronçon bloqué, nouveau calcul \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+Les obstacles se comportent selon leur vraie classe : une personne finit de traverser, un camion reste immobile. Une erreur de classification peut donc provoquer une collision, ce qui rend les erreurs du modèle mesurables. Ces règles restent à valider par l'équipe.

@@ -1,0 +1,44 @@
+% Architecture : chaîne du modèle (Colab) et simulateur (local)
+\begin{tikzpicture}[
+    >={Stealth[length=2mm]},
+    zone/.style={draw=black!45, fill=black!4, rounded corners=4pt},
+    grandebox/.style={draw=black!60, fill=white, rounded corners=3pt, align=left, font=\footnotesize,
+                      text width=3.75cm, minimum height=1.55cm, inner sep=4pt},
+    petitebox/.style={draw=black!60, fill=white, rounded corners=3pt, align=left, font=\footnotesize,
+                      text width=3.1cm, minimum height=1.95cm, inner sep=4pt},
+    lien/.style={->, draw=black!65, thick}
+  ]
+
+  % Zones
+  \draw[zone] (0,0) rectangle (16,-4.5);
+  \node[anchor=north west, font=\small\bfseries] at (0.1,-0.05) {Chaîne du modèle : Google Colab et Drive};
+  \draw[zone] (0,-5.6) rectangle (16,-9.25);
+  \node[anchor=north west, font=\small\bfseries] at (0.1,-5.65) {Simulateur : poste local};
+
+  % Chaîne du modèle
+  \node[grandebox] (donnees) at (2.45,-2.55) {\textbf{Données}\\Notebooks 01 et 02\\Recadrages, découpage};
+  \node[grandebox] (classiques) at (8,-1.55) {\textbf{Modèles classiques}\\Notebook 03 : HOG, puis SVM, Random Forest et k-NN};
+  \node[grandebox] (cnn) at (8,-3.5) {\textbf{CNN de zéro}\\Notebook 04 : PyTorch\\Poids et métadonnées};
+  \node[grandebox] (evaluation) at (13.55,-2.55) {\textbf{Évaluation}\\Notebook 05 : jeu de test et nouvelles images};
+
+  \draw[lien] (donnees.east) -- ++(0.45,0) |- (classiques.west);
+  \draw[lien] (donnees.east) -- ++(0.45,0) |- (cnn.west);
+  \draw[lien] (classiques.east) -- ++(0.45,0) |- (evaluation.west);
+  \draw[lien] (cnn.east) -- ++(0.45,0) |- (evaluation.west);
+
+  % Simulateur
+  \node[petitebox] (banque) at (1.95,-7.25) {\textbf{Banque d'images}\\Obstacle rencontré,\\image du jeu\\de test};
+  \node[petitebox] (classifieur) at (6,-7.25) {\textbf{Classifieur}\\Simulation, notre\\CNN ou référence\\(à valider)};
+  \node[petitebox] (decision) at (10,-7.25) {\textbf{Règle de décision}\\Classe prédite :\\arrêt, ralentir\\ou contourner};
+  \node[petitebox] (dijkstra) at (14.05,-7.25) {\textbf{Dijkstra}\\Recalcule le trajet\\sur la carte\\de Casablanca};
+
+  \draw[lien] (banque) -- (classifieur);
+  \draw[lien] (classifieur) -- (decision);
+  \draw[lien] (decision) -- (dijkstra);
+  \draw[lien] (dijkstra.south) -- ++(0,-0.28) -| (banque.south);
+  \node[font=\scriptsize, fill=black!4, inner sep=2pt] at (8,-8.53) {La voiture repart jusqu'à l'obstacle suivant};
+
+  % Seul lien entre les deux parties
+  \draw[->, draw=accent, line width=1.2pt] (6.9,0 |- cnn.south) -- (6.9,0 |- classifieur.north);
+  \node[anchor=west, font=\scriptsize, text=accent] at (7.05,-5.05) {Poids et métadonnées : classes, taille, normalisation};
+\end{tikzpicture}

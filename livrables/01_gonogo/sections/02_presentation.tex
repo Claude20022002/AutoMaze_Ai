@@ -1,0 +1,37 @@
+\section{Présentation du projet}
+\label{sec:presentation}
+
+AutoMaze AI classe une image d'objet routier parmi 6 classes : personne, vélo, voiture, moto, bus et camion. Le modèle final est testé sur de nouvelles images, puis utilisé dans un simulateur où chaque classe prédite déclenche une décision de conduite.
+
+Le sujet demande la classification. Le simulateur et le CNN sont des ajouts de l'équipe : ils ne remplacent aucun livrable du descriptif.
+
+\textbf{Hors périmètre :} la détection d'objets dans une image entière, la vidéo et la physique réaliste. Dans le simulateur, la position des obstacles est connue, et le modèle ne fait que les classer.
+
+\textbf{État d'avancement au 4 novembre 2026 :}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4cm}YY}
+  \toprule
+  \textbf{Partie} & \textbf{État} & \textbf{Reste à faire} \\
+  \midrule
+  Environnement Colab et Drive & Notebook de vérification exécuté & Vérification par chaque membre, si ce n'est pas fait \\
+  Données & Notebook d'exploration à peine commencé & Choix validé, chiffres par classe, recadrages \\
+  Modèles et évaluation & Notebooks préparés, aucun résultat & Tout l'entraînement et l'évaluation \\
+  Simulateur & Fonctionne en mode simulation, sans vrai modèle & Branchement de notre modèle et comparaison \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Équipe :} 3 étudiants, avec un responsable par rôle.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4cm}>{\raggedright\arraybackslash}p{2.8cm}Y}
+  \toprule
+  \textbf{Rôle} & \textbf{Responsable} & \textbf{Missions} \\
+  \midrule
+  Données & \acompleter{Nom} & Exploration, prétraitement, recadrages et découpage \\
+  Modèles & \acompleter{Nom} & Classifieurs classiques, CNN, journal des essais \\
+  Évaluation et intégration & \acompleter{Nom} & Évaluation finale, analyse des erreurs, export du modèle, lien avec le simulateur \\
+  \bottomrule
+\end{tabularx}
+\end{center}

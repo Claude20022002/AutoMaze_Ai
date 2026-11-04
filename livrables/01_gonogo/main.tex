@@ -1,0 +1,68 @@
+% AutoMaze AI - Livrable 1 : dossier Go/noGo
+% Compilation depuis ce dossier : pdflatex main.tex (deux fois, pour le sommaire et les renvois)
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[french]{babel}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amssymb}
+\usepackage{array,booktabs,tabularx}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[table]{xcolor}
+\usepackage{caption}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,babel}
+\usepackage{hyperref}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue!60!black,
+  pdftitle={AutoMaze AI - Livrable 1 : dossier Go/noGo},
+  pdfauthor={Equipe AutoMaze AI}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\renewcommand{\arraystretch}{1.25}
+\setlist{itemsep=0.2em,topsep=0.2em}
+\captionsetup{font=small,labelfont=bf}
+
+% Colonne de tableau qui s'adapte à la largeur, alignée à gauche
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+% Tout ce qui reste à compléter ressort en orange : à chercher avant la remise
+\newcommand{\acompleter}[1]{\textcolor{orange!85!black}{\textbf{[#1]}}}
+
+% Couleur d'accent des figures
+\definecolor{accent}{HTML}{1F6FB2}
+
+\begin{document}
+
+\input{sections/00_page_de_garde}
+
+\tableofcontents
+\vspace{1em}
+
+\section*{Demande}
+Nous demandons le Go pour un classifieur de 6 usagers de la route, entraîné de zéro, démontré sur de nouvelles images et dans un simulateur de Casablanca. Trois points restent à valider avec l'encadrant : le jeu de données, le modèle de référence préentraîné et le périmètre du simulateur (section~\ref{sec:validation}).
+
+\newpage
+
+\input{sections/01_introduction}
+\input{sections/02_presentation}
+\input{sections/03_problematique}
+\input{sections/04_objectifs}
+\input{sections/05_besoins}
+\input{sections/06_cahier_des_charges}
+\input{sections/07_choix_technologiques}
+\input{sections/08_analyse_conception}
+\input{sections/09_methodologie}
+\input{sections/10_planification}
+\input{sections/11_points_a_valider}
+
+\end{document}

@@ -1,0 +1,20 @@
+\section{Méthodologie}
+\label{sec:methodologie}
+
+Nous suivons les six étapes du descriptif et ajoutons le CNN et le simulateur une fois les modèles classiques évalués. La validation sert à tous les réglages, et le jeu de test ne sert qu'une fois, à la fin.
+
+\begin{enumerate}
+  \item \textbf{Acquisition (notebook 01).} Récupérer les annotations et les images utiles, et justifier le choix du jeu de données.
+  \item \textbf{Exploration (notebook 01).} Mesurer le nombre d'images par classe, le déséquilibre et la taille des objets, et observer des exemples.
+  \item \textbf{Prétraitement (notebook 02).} Filtrer, recadrer, redimensionner et normaliser, puis séparer train, validation et test par image d'origine.
+  \item \textbf{Modèles classiques (notebook 03).} Extraire les descripteurs HOG, puis comparer SVM, Random Forest et k-NN à un score plancher.
+  \item \textbf{CNN de zéro (notebook 04).} Vérifier d'abord que le modèle mémorise un petit lot, puis changer un seul réglage à la fois et noter chaque essai.
+  \item \textbf{Évaluation (notebook 05).} Mesurer accuracy, precision, recall et F1 sur le test, puis analyser la matrice de confusion et les images mal classées.
+  \item \textbf{Application.} Tester le modèle final sur de nouvelles images, puis le brancher sur le simulateur.
+\end{enumerate}
+
+\textbf{Organisation.} Une seule personne modifie un notebook à la fois, et chaque membre relit le notebook d'un autre avant chaque séance. Les décisions importantes sont notées dans un journal de bord.
+
+\textbf{Principaux risques.} Si la préparation de COCO prend trop de temps, nous passons à CIFAR en discutant la faible résolution. Si le temps manque, le modèle reste prioritaire et le simulateur s'arrête à sa version actuelle.
+
+\textbf{Usage de l'IA.} Le simulateur et la structure des notebooks ont été préparés avec Claude Code. Le choix des données, le prétraitement, l'entraînement et l'analyse restent le travail de l'équipe.

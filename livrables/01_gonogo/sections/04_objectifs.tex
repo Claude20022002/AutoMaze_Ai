@@ -1,0 +1,19 @@
+\section{Objectifs}
+\label{sec:objectifs}
+
+Le F1 macro sur le jeu de test est notre mesure principale, car chaque classe y compte autant, même la plus rare. La valeur cible sera fixée après les premiers modèles classiques, pour reposer sur un score réel.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{6cm}Y}
+  \toprule
+  \textbf{Objectif} & \textbf{Mesure de réussite} \\
+  \midrule
+  Décrire le jeu de données retenu & Provenance, nombre d'images, répartition par classe, résolution et qualité documentées \\
+  Comparer SVM, Random Forest et k-NN sur des descripteurs HOG & Accuracy, precision, recall, F1 et matrice de confusion, sur les mêmes données \\
+  Entraîner un CNN de zéro & F1 macro comparé au meilleur modèle classique, sur le même jeu de test \\
+  Analyser les classes difficiles & Paires de classes confondues et images mal classées expliquées \\
+  Tester le modèle final sur de nouvelles images & Sortie du type \og Image \textrightarrow{} Voiture (92~\%) \fg{}, les 92~\% étant un score de confiance \\
+  Démontrer le modèle dans le simulateur & Chaque classe prédite déclenche une décision, et les fautes graves sont comptées \\
+  \bottomrule
+\end{tabularx}
+\end{center}

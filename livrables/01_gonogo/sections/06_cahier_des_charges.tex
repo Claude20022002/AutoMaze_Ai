@@ -1,0 +1,42 @@
+\section{Cahier des charges}
+\label{sec:cdc}
+
+Les exigences F1 à F6 couvrent le descriptif du projet ; F7 est un ajout de l'équipe. Le projet est terminé quand chaque critère ci-dessous est vérifié.
+
+\subsection*{Exigences fonctionnelles}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}p{5.6cm}Y}
+  \toprule
+  \textbf{N°} & \textbf{Exigence} & \textbf{Critère d'acceptation} \\
+  \midrule
+  F1 & Constituer le jeu de données des 6 classes & Source, volume, répartition, résolution et qualité décrits dans le notebook 01 \\
+  F2 & Prétraiter les images & Nettoyage, redimensionnement, normalisation et découpage train / validation / test réalisés \\
+  F3 & Explorer les données & Nombre d'images par classe, exemples et déséquilibre présentés \\
+  F4 & Comparer plusieurs classifieurs classiques & SVM, Random Forest et k-NN entraînés sur les mêmes descripteurs HOG \\
+  F5 & Évaluer les modèles & Accuracy, precision, recall, F1 et matrice de confusion, avec l'analyse des classes difficiles \\
+  F6 & Prédire sur de nouvelles images & Une image inconnue donne une classe et un score affichés \\
+  F7 & Entraîner un CNN et l'utiliser dans le simulateur & CNN comparé aux modèles classiques, puis chargé par le simulateur depuis ses métadonnées \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection*{Exigences non fonctionnelles}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}p{5.6cm}Y}
+  \toprule
+  \textbf{N°} & \textbf{Exigence} & \textbf{Critère d'acceptation} \\
+  \midrule
+  NF1 & Entraînement de zéro & Aucun YOLO, détecteur ou poids préentraîné dans notre modèle \\
+  NF2 & Évaluation fiable & Découpage par image d'origine ; jeu de test utilisé seulement pour l'évaluation finale \\
+  NF3 & Reproductibilité & Graines fixées, essais notés, notebooks exécutables de bout en bout \\
+  NF4 & Cohérence du prétraitement & Même taille, même ordre des couleurs et même normalisation dans les notebooks et le simulateur \\
+  NF5 & Honnêteté des résultats & Aucune métrique inventée ; sans modèle, l'interface affiche \og SIMULATION --- modèle réel non chargé \fg{} \\
+  NF6 & Licences respectées & Sources des données, OpenStreetMap (ODbL) et illustrations OpenMoji (CC BY-SA 4.0) citées \\
+  NF7 & Matériel disponible & Entraînement possible sur le GPU gratuit de Colab \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Livrables :} notebook Python, jeu de données et sa description, comparaison des modèles, rapport, présentation orale et démonstration du classifieur sur de nouvelles images.
