@@ -1,7 +1,7 @@
 \section{Analyse et conception}
 \label{sec:conception}
 
-Le système se compose de deux parties séparées : la chaîne du modèle, sur Colab, et le simulateur, en local. Le simulateur ne réentraîne jamais le modèle : il charge seulement les poids et les métadonnées (figure~\ref{fig:architecture}).
+Notre système se divise en deux parties bien distinctes : d'un côté la chaîne du modèle, qui tourne sur Colab, et de l'autre le simulateur, qui tourne en local. Le simulateur ne réentraîne jamais le modèle : il se contente de charger ses poids et ses métadonnées (figure~\ref{fig:architecture}).
 
 \begin{figure}[H]
   \centering
@@ -10,11 +10,11 @@ Le système se compose de deux parties séparées : la chaîne du modèle, sur C
   \label{fig:architecture}
 \end{figure}
 
-Les trois classifieurs du simulateur respectent le même contrat : ils reçoivent une image et renvoient une classe, un score et 6 probabilités. On peut ainsi les échanger sans modifier la navigation.
+Dans le simulateur, les trois classifieurs possibles fonctionnent de la même façon : ils reçoivent une image et renvoient une classe, un score et 6 probabilités. Nous pouvons donc passer de l'un à l'autre sans toucher à la navigation.
 
-\textbf{Analyse fonctionnelle.} Le modèle reçoit le recadrage d'un objet et renvoie une classe et un score. Sous un seuil de confiance choisi sur la validation, le simulateur affiche \og Inconnu \fg{} et la voiture s'arrête par prudence.
+\textbf{Analyse fonctionnelle.} Concrètement, le modèle reçoit le recadrage d'un objet et renvoie une classe avec un score. Si ce score est trop faible, le simulateur affiche \og Inconnu \fg{} et la voiture s'arrête par prudence. Nous choisirons ce seuil sur le jeu de validation.
 
-\textbf{Acteurs.} L'équipe prépare les données, entraîne et évalue les modèles. L'encadrant valide les choix, puis le jury juge les résultats et la démonstration.
+\textbf{Acteurs.} L'équipe s'occupe des données, de l'entraînement et de l'évaluation des modèles. L'encadrant valide nos choix au fil du projet, et le jury juge à la fin les résultats et la démonstration.
 
 \subsection*{Règles de décision proposées}
 
@@ -32,4 +32,4 @@ Les trois classifieurs du simulateur respectent le même contrat : ils reçoiven
 \end{tabularx}
 \end{center}
 
-Les obstacles se comportent selon leur vraie classe : une personne finit de traverser, un camion reste immobile. Une erreur de classification peut donc provoquer une collision, ce qui rend les erreurs du modèle mesurables. Ces règles restent à valider par l'équipe.
+Dans le simulateur, chaque obstacle se comporte selon sa vraie classe : une personne finit de traverser, alors qu'un camion reste immobile. Si le modèle se trompe, la voiture peut donc prendre une mauvaise décision, voire provoquer une collision, et nous pouvons compter ces erreurs. Ces règles sont une première proposition, que nous devons encore valider en équipe.

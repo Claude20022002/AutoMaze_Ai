@@ -1,13 +1,13 @@
 \section{Présentation du projet}
 \label{sec:presentation}
 
-AutoMaze AI classe une image d'objet routier parmi 6 classes : personne, vélo, voiture, moto, bus et camion. Le modèle final est testé sur de nouvelles images, puis utilisé dans un simulateur où chaque classe prédite déclenche une décision de conduite.
+AutoMaze AI vise à reconnaître, à partir d'une image, six types d'usagers de la route : les personnes, les vélos, les voitures, les motos, les bus et les camions. Une fois entraîné, le modèle sera testé sur de nouvelles images. Nous l'utiliserons ensuite dans un simulateur, où la voiture adapte sa conduite selon ce que le modèle a reconnu.
 
-Le sujet demande la classification. Le simulateur et le CNN sont des ajouts de l'équipe : ils ne remplacent aucun livrable du descriptif.
+Le sujet porte sur la classification, et elle reste au centre de notre travail. Le CNN et le simulateur sont deux ajouts que nous proposons : ils viennent en plus des livrables du descriptif et n'en remplacent aucun.
 
-\textbf{Hors périmètre :} la détection d'objets dans une image entière, la vidéo et la physique réaliste. Dans le simulateur, la position des obstacles est connue, et le modèle ne fait que les classer.
+Nous laissons de côté la détection d'objets dans une image entière, la vidéo et la physique réaliste. Dans le simulateur, la position des obstacles est déjà connue : le modèle n'a donc qu'à dire de quoi il s'agit.
 
-\textbf{État d'avancement au 4 novembre 2026 :}
+Au 4 novembre 2026, le simulateur est la partie la plus avancée, alors que le travail sur les données et les modèles commence à peine :
 
 \begin{center}
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4cm}YY}
@@ -22,7 +22,7 @@ Le sujet demande la classification. Le simulateur et le CNN sont des ajouts de l
 \end{tabularx}
 \end{center}
 
-\textbf{Équipe :} 3 étudiants, avec un responsable par rôle.
+Nous sommes trois étudiants, et chacun de nous sera responsable d'un rôle :
 
 \begin{center}
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4cm}>{\raggedright\arraybackslash}p{2.8cm}Y}

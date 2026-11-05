@@ -1,7 +1,7 @@
 \section{Choix technologiques}
 \label{sec:choix}
 
-Nous travaillons en Python sur Google Colab, car aucun membre n'a de GPU, et le simulateur tourne en local. COCO 2017 est notre jeu de données proposé, parce qu'il est le seul candidat à couvrir les 6 classes avec des photos de rue réelles et des annotations de référence.
+Nous travaillerons en Python sur Google Colab, puisque aucun de nous ne dispose d'un GPU. Seul le simulateur tourne sur nos ordinateurs, car il a besoin d'ouvrir une fenêtre. Pour les données, nous proposons COCO 2017 : parmi les options étudiées, c'est celle qui couvre nos six classes avec de vraies photos de rue et des annotations de référence.
 
 \subsection*{Jeu de données}
 
@@ -19,7 +19,7 @@ Nous travaillons en Python sur Google Colab, car aucun membre n'a de GPU, et le 
 \end{tabularx}
 \end{center}
 
-Les chiffres réels par classe seront mesurés dans le notebook 01, avant toute décision sur les seuils.
+Nous n'avons pas encore les chiffres exacts par classe. Nous les mesurerons dans le notebook 01, et ils nous serviront ensuite à fixer nos seuils de filtrage.
 
 \subsection*{Outils}
 
@@ -42,4 +42,4 @@ Les chiffres réels par classe seront mesurés dans le notebook 01, avant toute 
 \end{tabularx}
 \end{center}
 
-L'approche classique sert de référence demandée par le sujet. Le CNN montre si l'apprentissage direct sur les images apporte un gain réel, malgré l'entraînement de zéro.
+Les modèles classiques nous donnent le point de comparaison demandé par le sujet. Le CNN nous permettra ensuite de voir si apprendre directement à partir des images apporte un vrai gain, même sans poids préentraînés.
