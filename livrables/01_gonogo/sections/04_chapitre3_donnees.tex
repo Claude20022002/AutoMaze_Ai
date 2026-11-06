@@ -94,7 +94,7 @@ COCO se compose de deux parties distinctes : les \textbf{images}, d'une part, et
 
 \begin{itemize}
   \item \textbf{Un volume beaucoup plus faible}\\
-  Les images de \texttt{train2017} représentent environ 18~Go, alors que l'archive des annotations ne pèse qu'environ 250~Mo. Or, nous n'avons besoin que de 10~672 photos sur 118~287, soit environ 9~\% de la base.
+  Les images de \texttt{train2017} représentent environ 18~Go, alors que l'archive des annotations ne pèse qu'environ 250~Mo. Or, notre plafond de 2~500 objets par classe (section~\ref{sec:nettoyage}) limite nos besoins à 15~000 objets, soit au plus 15~000 photos. Une même photo pouvant contenir plusieurs objets retenus, comme plusieurs voitures garées dans une rue, ces 15~000 objets proviennent en réalité de \textbf{10~672 photos} différentes : 7~982 photos apportent un seul objet, et 2~690 en apportent plusieurs. Nous n'avons donc besoin que de 10~672 photos sur 118~287, soit environ \textbf{9~\% de la base}. Ce nombre a été mesuré lors de la sélection des objets dans le notebook 02, avant tout téléchargement d'image.
   \item \textbf{Un stockage compatible avec Google Drive}\\
   Comme le montre le flux de développement (figure~\ref{fig:flux}), nos données sont stockées dans un dossier Google Drive partagé. L'espace gratuit d'un compte Google étant limité à 15~Go, il ne permettrait pas d'accueillir les 18~Go d'images. Nos recadrages finaux n'occupent qu'environ 64~Mo.
   \item \textbf{Un gain de temps}\\
@@ -117,7 +117,7 @@ La récupération des données suit les étapes suivantes, réalisées dans les 
   \item \textbf{Répartition des photos}\\
   Les objets sont répartis entre les jeux d'entraînement, de validation et de test selon l'identifiant de leur photo, toujours à partir des annotations.
   \item \textbf{Téléchargement ciblé}\\
-  Chaque photo sélectionnée est téléchargée une seule fois grâce à son adresse (\texttt{coco\_url}). Tous ses objets sont alors recadrés à l'aide de leur boîte, et seuls les recadrages de 64~×~64~px sont conservés. La photo complète n'est pas stockée.
+  Chaque photo sélectionnée est téléchargée une seule fois grâce à son adresse (\texttt{coco\_url}). Tous ses objets sont alors recadrés à l'aide de leur boîte, et seuls les recadrages de 64~×~64~px sont conservés. La photo complète n'est pas stockée. Sur les 10~672 photos prévues, 8 n'ont pas pu être téléchargées dans le délai imparti, ce qui explique les 14~990 recadrages obtenus au lieu de 15~000.
   \item \textbf{Stockage sur Google Drive}\\
   Les annotations, la liste des objets retenus, le fichier de découpage et les recadrages sont enregistrés dans le dossier Drive partagé de l'équipe. Les recadrages sont également regroupés dans une archive, décompressée sur le disque de Colab au début de l'entraînement, ce qui évite de lire des milliers de petits fichiers depuis Drive.
 \end{enumerate}
@@ -283,6 +283,7 @@ L'observation d'exemples tirés au hasard a permis de relever plusieurs difficul
 \end{itemize}
 
 \section{Nettoyage des données}
+\label{sec:nettoyage}
 
 Afin de ne conserver que des exemples exploitables, plusieurs règles de nettoyage ont été appliquées :
 
@@ -292,7 +293,7 @@ Afin de ne conserver que des exemples exploitables, plusieurs règles de nettoya
   \item \textbf{Exclusion des petits objets}\\
   En dessous de 32~px de côté, l'objet devient trop flou une fois agrandi. À ce seuil, la classe la plus rare conserve 4~505 objets, contre seulement 2~693 avec un seuil de 64~px.
   \item \textbf{Plafond de 2~500 objets par classe}\\
-  Ce plafond permet d'équilibrer les classes tout en gardant un entraînement réalisable sans GPU.
+  Ce plafond permet d'équilibrer les classes tout en gardant un entraînement réalisable sans GPU. Sa valeur découle de la classe la plus rare : après filtrage, le vélo ne compte que 4~505 objets utilisables. Avec 2~500 objets par classe, chaque classe atteint le même effectif tout en laissant une marge, et les objets peuvent être tirés au hasard parmi ceux disponibles.
   \item \textbf{Contrôle des téléchargements}\\
   Une photo inaccessible est notée sans interrompre la préparation. Sur les 15~000 objets prévus, 14~990 ont été récupérés, 8 téléchargements ayant expiré.
 \end{itemize}
