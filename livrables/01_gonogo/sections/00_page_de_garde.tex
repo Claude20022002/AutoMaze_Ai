@@ -1,29 +1,43 @@
+% Page de garde, sur le modèle de notre livrable PACTE 2025-2026
 \begin{titlepage}
-  \centering
-  {\large HESTIM --- Engineering \& Business School\par}
-  \vspace{0.3cm}
-  {\large Projet PACTE --- 4\textsuperscript{e} année\par}
-  \vspace{0.3cm}
-  {Année universitaire 2026--2027\par}
+  \thispagestyle{empty}
+  \begin{flushleft}
+    \includegraphics[height=1.5cm]{logo_hestim.png}
+  \end{flushleft}
 
-  \vspace{2.5cm}
-  {\Huge\bfseries AutoMaze AI\par}
   \vspace{0.6cm}
-  {\Large Classification d'objets routiers par Machine Learning\\pour les véhicules autonomes\par}
+  {\fontsize{17}{21}\selectfont \underline{Filière :} GÉNIE INFORMATIQUE\par}
 
-  \vspace{1.2cm}
-  {\LARGE\bfseries Livrable 1 : dossier Go/noGo\par}
+  \vspace{0.9cm}
+  \begin{center}
+    {\fontsize{19}{23}\selectfont\bfseries Projet PACTE\par}
 
-  \vspace{1.2cm}
-  \includegraphics[width=0.62\textwidth]{scenario1route_libre.jpg}\par
-  {\scriptsize Illustration d'un scénario de conduite (source externe, annexe~\ref{annexe:sources})\par}
+    \vspace{0.8cm}
+    % Bandeau du titre
+    \begin{tikzpicture}
+      \node[fill=bandeau, rounded corners=8pt, text=white, align=center, inner xsep=14pt, inner ysep=16pt,
+            text width=14cm, font=\bfseries\fontsize{16}{22}\selectfont] (bandeau)
+            {CLASSIFICATION D'OBJETS ROUTIERS PAR MACHINE LEARNING POUR LES VÉHICULES AUTONOMES};
+      \fill[bandeau!80!black, rounded corners=3pt] ($(bandeau.north west)+(-0.12,0.25)$) rectangle ($(bandeau.south west)+(0.18,-0.35)$);
+      \fill[bandeau!80!black, rounded corners=3pt] ($(bandeau.north east)+(-0.18,0.35)$) rectangle ($(bandeau.south east)+(0.12,-0.2)$);
+    \end{tikzpicture}
+
+    \vspace{0.5cm}
+    {\fontsize{15}{19}\selectfont\color{titre} AutoMaze AI\,: Livrable 1, dossier Go/No-Go\par}
+
+    \vspace{0.7cm}
+    \includegraphics[width=0.78\textwidth]{scenario1route_libre.jpg}
+  \end{center}
 
   \vfill
-  \begin{tabular}{ll}
-    \textbf{Équipe :} & Rodrigue Nzuzi \\
-                      & \acompleter{Membre 2} \\
-                      & \acompleter{Membre 3} \\[0.4em]
-    \textbf{Encadrant :} & \acompleter{Nom de l'encadrant} \\[0.4em]
-    \textbf{Date :} & 6 novembre 2026 \\
+  \begin{tabular}{@{}p{8.6cm}l}
+    \underline{Réalisé par} : LUSAMOTE KIMFUTA Claudia & \underline{Encadrante :} Mme HAIDRAR \\[0.35em]
+    \hspace{2.35cm}MOUPIGA TOMBE Elisia & \\[0.35em]
+    \hspace{2.35cm}Issa D DEMBELE & \\
   \end{tabular}
+
+  \vspace{1.2cm}
+  \begin{center}
+    Année universitaire : 2026 – 2027
+  \end{center}
 \end{titlepage}

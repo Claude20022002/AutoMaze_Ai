@@ -6,3 +6,10 @@
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+
+# Police Aptos (Microsoft Office) : copie locale, non redistribuable
+fonts/
+# Fichiers temporaires de XeLaTeX
+*.xdv
+*.lof
+*.lot

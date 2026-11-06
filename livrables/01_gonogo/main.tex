@@ -1,14 +1,21 @@
-% AutoMaze AI - Livrable 1 : dossier Go/noGo
-% Structure : introduction générale, six chapitres, conclusion, bibliographie et annexes
-% (voir livrables/architecture_gonogo_attendue.txt).
-% Compilation depuis ce dossier : pdflatex main.tex (deux fois, pour le sommaire et les renvois)
+% AutoMaze AI - Livrable 1 : dossier Go/No-Go
+% Mise en page inspirée du livrable PACTE 2025-2026 de l'équipe (logo en en-tête, titres bleus, légendes en italique).
+% Compilation depuis ce dossier, avec XeLaTeX (deux fois, pour le sommaire et les listes) :
+%   xelatex main.tex
+% La police Aptos est lue dans le dossier fonts/ (copie locale, ignorée par Git). Sans ce dossier,
+% le document est composé en Latin Modern.
 \documentclass[11pt,a4paper]{report}
 
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage{lmodern}
+\usepackage{fontspec}
+\IfFileExists{fonts/Aptos-Regular.ttf}{%
+  \setmainfont{Aptos}[Path=fonts/, Extension=.ttf, UprightFont=*-Regular, BoldFont=*-Bold,
+                      ItalicFont=*-Italic, BoldItalicFont=*-BoldItalic]
+  \newfontfamily\titrefont{AptosDisplay}[Path=fonts/, Extension=.ttf, UprightFont=*-Regular, BoldFont=*-Bold]
+}{%
+  \newcommand{\titrefont}{}
+}
 \usepackage[french]{babel}
-\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage[a4paper,margin=2.5cm,headheight=34pt]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{array,booktabs,tabularx}
 \usepackage{enumitem}
@@ -20,43 +27,77 @@
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,fit,babel}
 \usepackage{titlesec}
+\usepackage{titletoc}
+\usepackage{fancyhdr}
 \usepackage{hyperref}
 
 \hypersetup{
   colorlinks=true,
   linkcolor=black,
   urlcolor=blue!60!black,
-  pdftitle={AutoMaze AI - Livrable 1 : dossier Go/noGo},
-  pdfauthor={Equipe AutoMaze AI}
+  pdftitle={AutoMaze AI - Livrable 1 : dossier Go/No-Go},
+  pdfauthor={Claudia Lusamote Kimfuta, Elisia Moupiga Tombe, Issa D Dembele}
 }
 
-% Chapitres plus compacts que le style par défaut de la classe report
-\titleformat{\chapter}[display]{\normalfont\huge\bfseries}{\large\chaptertitlename~\thechapter}{0.4em}{}
-\titlespacing*{\chapter}{0pt}{-1.5em}{1.5em}
+% ------------------------------------------------------------------ Couleurs
+\definecolor{titre}{HTML}{1F4E79}      % titres, comme dans nos rapports précédents
+\definecolor{bandeau}{HTML}{2F5496}    % bandeau de la page de garde
+\definecolor{accent}{HTML}{1F6FB2}     % figures
+\definecolor{integration}{HTML}{2E8B57}
 
+% ------------------------------------------------------------------ Titres
+\titleformat{\chapter}[block]{\titrefont\fontsize{22}{27}\selectfont\color{titre}}{\chaptertitlename~\thechapter~:}{0.4em}{}
+\titleformat{name=\chapter,numberless}[block]{\titrefont\fontsize{24}{29}\selectfont\color{titre}\filcenter}{}{0pt}{\MakeUppercase}
+\titlespacing*{\chapter}{0pt}{0pt}{1.4em}
+\titleformat{\section}{\titrefont\fontsize{15}{19}\selectfont\color{titre}}{\thesection-}{0.5em}{}
+\titlespacing*{\section}{0pt}{1.3em}{0.5em}
+\titleformat{\subsection}{\titrefont\fontsize{12.5}{16}\selectfont\color{titre}}{\thesubsection-}{0.5em}{}
+\titlespacing*{\subsection}{0pt}{1em}{0.3em}
+
+% Sommaire : titres en bleu, comme dans nos rapports
+\addto\captionsfrench{%
+  \renewcommand{\contentsname}{\color{titre}Table des matières}%
+  \renewcommand{\listfigurename}{\color{titre}Liste des figures}%
+  \renewcommand{\listtablename}{\color{titre}Liste des tableaux}%
+  \renewcommand{\tablename}{Tableau}%
+}
+
+% ------------------------------------------------------------------ En-tête et pied de page
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\includegraphics[height=0.95cm]{logo_hestim.png}}
+\fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyhead[L]{\includegraphics[height=0.95cm]{logo_hestim.png}}\fancyfoot[R]{\thepage}\renewcommand{\headrulewidth}{0pt}}
+
+% ------------------------------------------------------------------ Corps du texte
 \graphicspath{{figures/img/}}
-
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.6em}
-\renewcommand{\arraystretch}{1.25}
-\setlist{itemsep=0.2em,topsep=0.2em}
-\captionsetup{font=small,labelfont=bf}
+\linespread{1.08}
+\renewcommand{\arraystretch}{1.3}
+\setlist{itemsep=0.25em,topsep=0.3em}
+\setlist[itemize]{label=\textbullet}
+\captionsetup{font={small,it}, labelfont={small,it}, labelsep=colon, justification=centering}
+\captionsetup[table]{position=top}
 
 % Colonne de tableau qui s'adapte à la largeur, alignée à gauche
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+% En-tête de tableau sur fond gris clair
+\newcommand{\entete}{\rowcolor{black!7}}
 
 % Tout ce qui reste à compléter ressort en orange : à chercher avant la remise
 \newcommand{\acompleter}[1]{\textcolor{orange!85!black}{\textbf{[#1]}}}
-
-% Couleurs des figures
-\definecolor{accent}{HTML}{1F6FB2}
-\definecolor{integration}{HTML}{2E8B57}
 
 \begin{document}
 
 \input{sections/00_page_de_garde}
 
+\pagenumbering{arabic}
+\setcounter{page}{2}
 \tableofcontents
+\listoffigures
+\listoftables
 
 \input{sections/01_introduction}
 \input{sections/02_chapitre1_projet}

@@ -1,24 +1,13 @@
 \chapter*{Introduction générale}
-\addcontentsline{toc}{chapter}{Introduction générale}
+\addcontentsline{toc}{chapter}{INTRODUCTION GÉNÉRALE}
 \label{chap:introduction}
 
-\textbf{Contexte.} Un véhicule autonome doit percevoir son environnement, décider puis agir, sans conducteur pour corriger ses erreurs. Pour cela, il doit d'abord comprendre ce qui se trouve devant lui. Un piéton qui traverse appelle un arrêt, alors qu'un camion à l'arrêt se contourne. Une erreur de reconnaissance peut donc conduire à une mauvaise décision.
+Dans un contexte où les véhicules autonomes occupent une place de plus en plus importante dans la réflexion sur la mobilité de demain, la \textbf{perception de l'environnement routier} représente un enjeu majeur. Pour circuler sans conducteur, un véhicule doit être capable de reconnaître les usagers qui l'entourent, car un piéton qui traverse et un camion à l'arrêt n'appellent pas la même réaction. Une erreur à cette étape peut ainsi entraîner une mauvaise décision de conduite.
 
-\textbf{La perception routière.} La perception d'un véhicule autonome comporte plusieurs tâches : trouver les objets dans l'image (la détection), dire de quoi il s'agit (la classification), puis estimer leur position et leur mouvement. Notre projet PACTE de 4\textsuperscript{e} année porte sur la classification : à partir de l'image d'un objet, reconnaître de quel usager de la route il s'agit.
+L'objectif principal du \textbf{projet PACTE} est de concevoir et de développer un système de \textbf{classification d'objets routiers par Machine Learning}, capable de reconnaître six catégories d'usagers de la route à partir d'images : la personne, le vélo, la voiture, la moto, le bus et le camion. Le modèle est entraîné de zéro, sans réseau préentraîné ni détecteur d'objets, conformément aux règles du cours.
 
-\textbf{Problématique.} Nous chercherons à savoir si un modèle entraîné de zéro sur un jeu de données de taille limitée peut reconnaître les usagers de la route assez bien pour guider les décisions d'un véhicule virtuel. Le chapitre~\ref{chap:projet} détaille cette question.
+Ce projet s'inscrit dans une démarche de professionnalisation visant à mobiliser les compétences acquises en \textbf{traitement de données}, en \textbf{apprentissage automatique} et en \textbf{conception logicielle}. Il permet de mettre en pratique la préparation d'un jeu de données, l'extraction de caractéristiques visuelles et la comparaison de plusieurs classifieurs (\textbf{SVM}, \textbf{Random Forest} et \textbf{k-NN}), ainsi que l'analyse rigoureuse de leurs résultats.
 
-\textbf{Objectifs.} Le cœur du projet reste celui du sujet : constituer un jeu de données, extraire des caractéristiques, comparer SVM, Random Forest et k-NN, analyser les classes difficiles, puis prédire la classe de nouvelles images. Nous y ajoutons une démonstration : un véhicule virtuel qui utilise nos prédictions pour rejoindre sa destination dans les rues de Casablanca.
+Au-delà de l'aspect académique, le projet intègre une \textbf{démonstration de conduite autonome} : un véhicule virtuel circule dans les rues de Casablanca et adapte son trajet en fonction des prédictions de notre modèle. Cette intégration permet de montrer concrètement l'utilité de la classification dans un véhicule autonome, sans devenir le sujet principal du projet.
 
-\textbf{Démarche.} Ce dossier suit la logique du projet :
-
-\begin{itemize}
-  \item le chapitre~\ref{chap:projet} présente le projet, son périmètre et son cahier des charges ;
-  \item le chapitre~\ref{chap:analyse} décrit le fonctionnement attendu du système à l'aide de diagrammes ;
-  \item le chapitre~\ref{chap:donnees} étudie et prépare les données ;
-  \item le chapitre~\ref{chap:architecture} détaille l'architecture technique de chaque module ;
-  \item le chapitre~\ref{chap:methodologie} fixe la méthode d'expérimentation et d'évaluation ;
-  \item le chapitre~\ref{chap:faisabilite} rassemble les preuves de faisabilité et les critères de la décision Go/noGo.
-\end{itemize}
-
-Ce dossier prépare la décision de Go/noGo, qui compte pour 15~\% de la note finale.
+Ce dossier, qui prépare la décision de Go/No-Go (15~\% de la note finale), est organisé en six chapitres. Le premier présente le projet et son cahier des charges, le deuxième l'analyse fonctionnelle et la conception du système, et le troisième l'étude et la préparation des données. Le quatrième détaille l'architecture technique des modules, le cinquième la méthodologie expérimentale, et le sixième l'étude de faisabilité ainsi que les critères de la décision Go/No-Go.
