@@ -47,7 +47,9 @@
 
 % ------------------------------------------------------------------ Titres
 \titleformat{\chapter}[block]{\titrefont\fontsize{22}{27}\selectfont\color{titre}}{\chaptertitlename~\thechapter~:}{0.4em}{}
-\titleformat{name=\chapter,numberless}[block]{\titrefont\fontsize{24}{29}\selectfont\color{titre}\filcenter}{}{0pt}{\MakeUppercase}
+\titleformat{name=\chapter,numberless}[block]{\titrefont\fontsize{22}{27}\selectfont\color{titre}}{}{0pt}{}
+% Introduction et conclusion générales : titre centré en capitales, plus bas sur la page
+\newcommand{\chapitrecentre}[1]{\chapter*{\vspace*{2.5cm}\hfill #1\hfill}}
 \titlespacing*{\chapter}{0pt}{0pt}{1.4em}
 \titleformat{\section}{\titrefont\fontsize{15}{19}\selectfont\color{titre}}{\thesection-}{0.5em}{}
 \titlespacing*{\section}{0pt}{1.3em}{0.5em}
@@ -56,9 +58,9 @@
 
 % Sommaire : titres en bleu, comme dans nos rapports
 \addto\captionsfrench{%
-  \renewcommand{\contentsname}{\color{titre}Table des matières}%
-  \renewcommand{\listfigurename}{\color{titre}Liste des figures}%
-  \renewcommand{\listtablename}{\color{titre}Liste des tableaux}%
+  \renewcommand{\contentsname}{Table des matières}%
+  \renewcommand{\listfigurename}{Liste des figures}%
+  \renewcommand{\listtablename}{Liste des tableaux}%
   \renewcommand{\tablename}{Tableau}%
 }
 
@@ -80,6 +82,9 @@
 \setlist[itemize]{label=\textbullet}
 \captionsetup{font={small,it}, labelfont={small,it}, labelsep=colon, justification=centering}
 \captionsetup[table]{position=top}
+% Numérotation continue, comme dans nos rapports : Figure 1, Figure 2...
+\counterwithout{figure}{chapter}
+\counterwithout{table}{chapter}
 
 % Colonne de tableau qui s'adapte à la largeur, alignée à gauche
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
