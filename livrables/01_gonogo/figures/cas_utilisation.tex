@@ -1,0 +1,47 @@
+% Diagramme de cas d'utilisation : acteurs à gauche et à droite, cas d'utilisation dans le système
+\begin{tikzpicture}[
+    uc/.style={ellipse, draw=accent, fill=accent!7, align=center, font=\footnotesize,
+               minimum width=4.1cm, minimum height=0.95cm, inner sep=1pt},
+    lien/.style={draw=black!60},
+    inclut/.style={draw=black!50, dashed, -{Stealth[length=2mm]}}
+  ]
+  % Bonhomme : \acteur{nom}{position}{texte}
+  \newcommand{\acteur}[3]{
+    \begin{scope}[shift={#2}]
+      \draw[thick] (0,0.55) circle (0.17);
+      \draw[thick] (0,0.38) -- (0,-0.12);
+      \draw[thick] (-0.3,0.2) -- (0.3,0.2);
+      \draw[thick] (0,-0.12) -- (-0.22,-0.5);
+      \draw[thick] (0,-0.12) -- (0.22,-0.5);
+      \node[font=\footnotesize, align=center] at (0,-0.85) {#3};
+      \coordinate (#1) at (0,0.1);
+    \end{scope}
+  }
+
+  % Système
+  \draw[draw=black!55, rounded corners=4pt] (2.2,0.9) rectangle (11.4,-8.6);
+  \node[anchor=north west, font=\small\bfseries] at (2.3,0.85) {Système AutoMaze AI};
+
+  \node[uc] (u1) at (6.8,-0.4) {UC1 Préparer les données};
+  \node[uc] (u2) at (6.8,-1.65) {UC2 Entraîner et comparer\\les classifieurs};
+  \node[uc] (u3) at (6.8,-2.9) {UC3 Évaluer le modèle final};
+  \node[uc] (u4) at (6.8,-4.15) {UC4 Classer une nouvelle image};
+  \node[uc] (u5) at (6.8,-5.4) {UC5 Lancer une démonstration\\de conduite};
+  \node[uc] (u6) at (6.8,-6.65) {UC6 Comparer les classifieurs\\dans le simulateur};
+  \node[uc] (u7) at (6.8,-7.9) {UC7 Consulter les résultats\\et le rapport};
+
+  \acteur{equipe}{(0,-1.6)}{Équipe\\projet}
+  \acteur{utilisateur}{(0,-5.6)}{Utilisateur\\de la démo}
+  \acteur{encadrant}{(13.6,-3.2)}{Encadrant}
+  \acteur{jury}{(13.6,-6.7)}{Jury}
+
+  \foreach \u in {u1,u2,u3,u6} \draw[lien] (equipe) -- (\u.west);
+  \foreach \u in {u4,u5} \draw[lien] (utilisateur) -- (\u.west);
+  \draw[lien] (encadrant) -- (u7.east);
+  \draw[lien] (encadrant) -- (u3.east);
+  \draw[lien] (jury) -- (u7.east);
+  \draw[lien] (jury) -- (u5.east);
+
+  % Le cas UC5 inclut la classification d'une image
+  \draw[inclut] (u5.north east) to[bend right=30] node[right, font=\scriptsize, text=black!60] {« inclut »} (u4.south east);
+\end{tikzpicture}

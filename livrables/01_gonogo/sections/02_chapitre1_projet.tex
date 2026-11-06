@@ -1,0 +1,182 @@
+\chapter{Présentation du projet et cahier des charges}
+\label{chap:projet}
+
+\section{Présentation et contexte}
+
+AutoMaze AI reconnaît six usagers de la route à partir de l'image d'un objet : personne, vélo, voiture, moto, bus et camion. Le modèle renvoie une classe et un score de confiance. Une fois entraîné, il est testé sur des images qu'il n'a jamais vues, puis utilisé par un véhicule virtuel qui roule dans les vraies rues de Casablanca.
+
+Nous sommes trois étudiants, et chacun de nous est responsable d'un rôle :
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4cm}>{\raggedright\arraybackslash}p{2.8cm}Y}
+  \toprule
+  \textbf{Rôle} & \textbf{Responsable} & \textbf{Missions} \\
+  \midrule
+  Données & \acompleter{Nom} & Exploration, prétraitement, recadrages et découpage \\
+  Modèles & \acompleter{Nom} & Extraction des caractéristiques, classifieurs, journal des essais \\
+  Évaluation et intégration & \acompleter{Nom} & Évaluation finale, analyse des erreurs, export du modèle, lien avec le simulateur \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Problématique}
+
+\begin{quote}
+\itshape Un modèle entraîné de zéro sur un jeu de données de taille limitée peut-il reconnaître les usagers de la route assez bien pour guider les décisions d'un véhicule autonome virtuel ?
+\end{quote}
+
+Trois questions en découlent :
+
+\begin{itemize}
+  \item Parmi SVM, Random Forest et k-NN, quel classifieur obtient le meilleur score sur les mêmes caractéristiques ?
+  \item Quelles classes sont les plus difficiles à reconnaître, et pourquoi ?
+  \item Que fait le véhicule quand le modèle se trompe, en particulier quand il ne reconnaît pas un piéton ?
+\end{itemize}
+
+\section{Objectif général et objectifs spécifiques}
+
+\textbf{Objectif général.} Développer et évaluer un classifieur d'objets routiers entraîné de zéro, puis montrer comment ses prédictions guident un véhicule virtuel.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}p{5.8cm}Y}
+  \toprule
+  \textbf{N°} & \textbf{Objectif spécifique} & \textbf{Mesure de réussite} \\
+  \midrule
+  OS1 & Décrire le jeu de données retenu & Provenance, volume, répartition par classe, résolution et qualité documentées \\
+  OS2 & Préparer les images & Nettoyage, recadrage, normalisation et découpage sans fuite de données \\
+  OS3 & Comparer SVM, Random Forest et k-NN & Accuracy, précision, rappel, F1 et matrice de confusion, sur les mêmes données \\
+  OS4 & Analyser les classes difficiles & Paires de classes confondues et images mal classées expliquées \\
+  OS5 & Prédire sur de nouvelles images & Affichage du type \og Image \textrightarrow{} Voiture (92~\%) \fg{} \\
+  OS6 & Intégrer le modèle au véhicule virtuel & Chaque prédiction déclenche une décision, et les erreurs graves sont comptées \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+Pour juger nos modèles, nous retenons surtout le F1 macro, car il donne le même poids à chaque classe. Nous ne fixons pas de valeur cible à l'avance : la référence sera le meilleur modèle classique, comparé à des scores planchers (section~\ref{sec:metriques}).
+
+\section{Périmètre fonctionnel}
+\label{sec:perimetre}
+
+Le travail de Machine Learning est le cœur scientifique du projet. L'intégration sert à montrer son utilité dans un véhicule autonome virtuel, sans devenir le sujet principal.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm}Y>{\raggedright\arraybackslash}p{2.4cm}}
+  \toprule
+  \textbf{Module} & \textbf{Responsabilité} & \textbf{Importance} \\
+  \midrule
+  Dataset & Fournir les images des objets routiers & Essentielle \\
+  Prétraitement & Préparer les images pour l'apprentissage & Essentielle \\
+  Classification ML & Identifier la classe d'un objet & Essentielle \\
+  Évaluation & Comparer les classifieurs & Essentielle \\
+  \midrule
+  Simulateur & Fournir un environnement de démonstration & Intégration \\
+  Localisation & Fournir les coordonnées des objets & Intégration \\
+  Planification & Calculer le chemin le plus court & Intégration \\
+  Décision & Choisir le comportement face aux obstacles & Intégration \\
+  Contrôle & Commander le véhicule virtuel & Intégration \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Hors périmètre : la détection d'objets.} Notre modèle ne cherche pas où se trouvent les objets dans une grande image : ce serait le rôle d'un détecteur comme YOLO ou R-CNN (figure~\ref{fig:detection}), interdit par les règles du cours. Il reçoit l'image d'un seul objet et dit de quoi il s'agit. Dans le simulateur, c'est la position connue de l'objet qui remplace la détection. La vidéo et la physique réaliste du véhicule restent aussi hors périmètre.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\textwidth]{dectection_dobjet_en_utilisant_regions_avec_cnn.jpg}
+  \caption{Détection d'objets avec un réseau à régions (R-CNN) : chaque objet est localisé par une boîte. C'est ce que notre projet \emph{ne fait pas} : nous classons un objet déjà isolé. Source externe (annexe~\ref{annexe:sources}).}
+  \label{fig:detection}
+\end{figure}
+
+\section{Besoins fonctionnels}
+\label{sec:besoins-fonctionnels}
+
+Les exigences EF01 à EF06 reprennent le sujet. Les exigences EF07 à EF14 relèvent de l'intégration.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}p{5.4cm}Y}
+  \toprule
+  \textbf{ID} & \textbf{Exigence} & \textbf{Critère d'acceptation} \\
+  \midrule
+  EF01 & Charger et explorer le dataset routier & Effectifs par classe, tailles et exemples présentés (notebook 01) \\
+  EF02 & Prétraiter les images & Images filtrées, recadrées, redimensionnées et normalisées ; découpage sans photo partagée (notebook 02) \\
+  EF03 & Extraire les caractéristiques visuelles & Descripteurs HOG calculés pour toutes les images (notebook 03) \\
+  EF04 & Entraîner plusieurs modèles de classification & SVM, Random Forest et k-NN entraînés sur les mêmes caractéristiques \\
+  EF05 & Évaluer et comparer les modèles & Tableau commun : accuracy, précision, rappel, F1 et matrices de confusion \\
+  EF06 & Prédire la classe d'un nouvel objet & Une image inconnue donne une classe et un score affichés \\
+  EF07 & Récupérer les coordonnées des objets dans le simulateur & Chaque obstacle a un tronçon de rue et une position sur ce tronçon \\
+  EF08 & Associer les prédictions aux objets virtuels & Chaque prédiction est rattachée à l'obstacle dont provient l'image \\
+  EF09 & Représenter les obstacles dans l'environnement & Tronçons bloqués ou pénalisés selon la décision \\
+  EF10 & Calculer le chemin vers la destination avec Dijkstra & Plus court chemin trouvé sur la carte, vérifié par des tests \\
+  EF11 & Adapter le trajet en présence d'un obstacle & Nouveau calcul après chaque obstacle bloquant \\
+  EF12 & Décider de ralentir, s'arrêter ou contourner & Une action par classe prédite, et un arrêt prudent si le score est trop faible \\
+  EF13 & Commander le véhicule virtuel & Le véhicule avance, ralentit, s'arrête, fait demi-tour ou change de rue \\
+  EF14 & Afficher les prédictions et les décisions du véhicule & Image, classe, score et action visibles à l'écran \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Besoins non fonctionnels}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}p{4.6cm}Y}
+  \toprule
+  \textbf{ID} & \textbf{Exigence} & \textbf{Critère d'acceptation} \\
+  \midrule
+  ENF1 & Entraînement de zéro & Aucun YOLO, détecteur ou poids préentraîné dans notre modèle \\
+  ENF2 & Évaluation fiable & Découpage par photo d'origine ; jeu de test utilisé une seule fois, pour l'évaluation finale \\
+  ENF3 & Reproductibilité & Graines fixées, essais notés, notebooks exécutables de bout en bout \\
+  ENF4 & Cohérence du prétraitement & Même taille, même ordre des couleurs et même normalisation dans les notebooks et le simulateur \\
+  ENF5 & Séparation vérité terrain / perception & Les décisions du véhicule n'utilisent jamais la vraie classe connue du simulateur \\
+  ENF6 & Honnêteté des résultats & Aucune métrique inventée ; sans modèle, l'interface affiche \og SIMULATION --- modèle réel non chargé \fg{} \\
+  ENF7 & Licences respectées & COCO, OpenStreetMap (ODbL) et illustrations citées \\
+  ENF8 & Temps de réponse & Une prédiction en quelques millisecondes sur CPU, pour une démonstration fluide \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Contraintes techniques et académiques}
+
+\begin{itemize}
+  \item \textbf{Règles du cours :} pas de YOLO, pas de détecteur et pas de poids préentraînés pour notre modèle. Les classifieurs à comparer sont ceux du sujet : SVM, Random Forest et k-NN.
+  \item \textbf{Calendrier :} séance 1 le 4 novembre, séance 2 le 25 novembre, soutenance le 16 décembre 2026. Les séances ne se décalent pas.
+  \item \textbf{Matériel :} aucun membre n'a de GPU. Les traitements doivent tenir sur un CPU ou sur le GPU gratuit de Google Colab.
+  \item \textbf{Budget :} nul. Tous les outils et toutes les données retenus sont gratuits.
+  \item \textbf{Licences :} les images COCO gardent leur licence Flickr ; elles ne sont donc pas redistribuées dans le dépôt Git.
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.4cm}Y>{\raggedright\arraybackslash}p{4.4cm}}
+  \toprule
+  \textbf{Ressource} & \textbf{Détail} & \textbf{Solution} \\
+  \midrule
+  Données & Images des 6 classes, étiquettes fiables, licence compatible & COCO 2017, à valider par l'encadrant \\
+  Calcul & Entraînement des modèles & CPU local, Google Colab en appui \\
+  Stockage & Données, poids et figures partagés & Dossier Google Drive partagé \\
+  Poste local & Fenêtre du simulateur, que Colab ne peut pas ouvrir & Disponible \\
+  Encadrement & Validation du dataset et du périmètre & Section~\ref{sec:criteres-go} \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Méthodologie et planning prévisionnel}
+
+Le projet suit deux phases (figure~\ref{fig:flux}). Dans la première, nous développons et entraînons le modèle dans des notebooks versionnés sur GitHub. Dans la seconde, le modèle exporté est chargé par le simulateur, sans jamais y être réentraîné.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth]{flux_de_developpement_et_integration_autonome.jpg}
+  \caption{Flux de développement et d'intégration. Deux corrections s'imposent : il faut lire COCO 2017 (et non « COCO2027 »), et nos classes comprennent aussi le camion. Le modèle classe des objets déjà isolés, sans boîte de détection.}
+  \label{fig:flux}
+\end{figure}
+
+\begin{enumerate}
+  \item \textbf{Données (notebooks 01 et 02) :} acquisition, exploration, nettoyage, recadrage et découpage.
+  \item \textbf{Modèles (notebook 03) :} extraction HOG, puis entraînement et réglage de SVM, Random Forest et k-NN sur la validation.
+  \item \textbf{Évaluation (notebook 05) :} mesure unique sur le jeu de test, analyse des erreurs, prédiction sur de nouvelles images.
+  \item \textbf{Intégration :} export du modèle, branchement dans le simulateur, puis comparaison sur plusieurs épisodes.
+\end{enumerate}
+
+\textbf{Organisation.} Une seule personne modifie un notebook à la fois, et chaque notebook est relu par un autre membre avant chaque séance. Les décisions importantes sont notées dans un journal. Le planning détaillé figure en section~\ref{sec:planning}.
