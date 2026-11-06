@@ -3,55 +3,7 @@
 
 \section{Introduction}
 
-Après avoir défini les objectifs, le périmètre et les contraintes du projet dans le cahier des charges, cette deuxième étape vise à analyser le \textbf{fonctionnement attendu du système} afin de poser les bases de sa conception. L'analyse fonctionnelle assure la cohérence entre les attentes du sujet et la structure technique de la solution. Dans un premier temps, nous identifierons les acteurs et les cas d'utilisation, puis nous décrirons les scénarios de démonstration. Nous formaliserons ensuite le comportement du système à travers les diagrammes \textbf{UML} de cas d'utilisation, d'activité, de séquence et de composants.
-
-\section{Identification des acteurs}
-
-L'identification des acteurs constitue une étape essentielle de l'analyse fonctionnelle. Elle permet de déterminer les différentes parties qui interagissent avec le système, chacune ayant un rôle et des responsabilités spécifiques.
-
-\textbf{1. Équipe projet}\\
-\textbf{Rôle :} l'équipe conçoit et entraîne le modèle de classification.\\
-\textbf{Responsabilités :}
-\begin{itemize}
-  \item Préparer les données et réaliser leur découpage.
-  \item Entraîner et comparer les classifieurs.
-  \item Évaluer le modèle final et analyser ses erreurs.
-\end{itemize}
-
-\textbf{2. Utilisateur de la démonstration}\\
-\textbf{Rôle :} l'utilisateur interagit avec le système pour observer son fonctionnement.\\
-\textbf{Responsabilités :}
-\begin{itemize}
-  \item Classer une nouvelle image.
-  \item Lancer un épisode de conduite dans le simulateur.
-\end{itemize}
-
-\textbf{3. Encadrante et jury}\\
-\textbf{Rôle :} l'encadrante valide les choix du projet et suit son avancement, tandis que le jury évalue les résultats.\\
-\textbf{Responsabilités :}
-\begin{itemize}
-  \item Valider le jeu de données et le périmètre du projet.
-  \item Consulter les résultats, le rapport et la démonstration.
-\end{itemize}
-
-À ces acteurs humains s'ajoutent deux acteurs système : le \textbf{simulateur}, qui fournit l'environnement, les positions des objets et leurs images, et le \textbf{modèle ML}, qui renvoie la classe et le score d'une image.
-
-\begin{table}[H]
-\centering
-\caption{Résumé des acteurs et de leurs rôles}
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{2.2cm}Y}
-  \toprule
-  \entete \textbf{Acteur} & \textbf{Type} & \textbf{Rôle principal} \\
-  \midrule
-  Équipe projet & Humain & Préparation des données, entraînement et évaluation des modèles \\
-  Utilisateur de la démo & Humain & Classification d'images et lancement d'épisodes de conduite \\
-  Encadrante & Humain & Validation des choix et suivi de l'avancement \\
-  Jury & Humain & Évaluation des résultats, du rapport et de la démonstration \\
-  Simulateur & Système & Environnement, positions et images des objets \\
-  Modèle ML & Système & Classe et score de chaque image \\
-  \bottomrule
-\end{tabularx}
-\end{table}
+Après avoir défini les objectifs, le périmètre et les contraintes du projet dans le cahier des charges, cette deuxième étape vise à analyser le \textbf{fonctionnement attendu du système} afin de poser les bases de sa conception. L'analyse fonctionnelle assure la cohérence entre les attentes du sujet et la structure technique de la solution. Dans un premier temps, nous décrirons les cas d'utilisation, puis les scénarios de démonstration. Nous formaliserons ensuite le comportement du système à travers les diagrammes \textbf{UML} d'activité, de séquence et de composants.
 
 \section{Description des cas d'utilisation}
 
@@ -120,16 +72,6 @@ Ces scénarios serviront à la fois à concevoir les tests et à montrer ce que 
 
 Deux cas particuliers sont également prévus. Si le score de confiance est trop faible, la classe devient \og Inconnu \fg{} et le véhicule effectue un arrêt prudent. S'il n'existe plus aucun chemin, le véhicule reste arrêté, et l'épisode est déclaré \og bloqué \fg{} au bout de 30 pas.
 
-\section{Diagramme de cas d'utilisation}
-
-Le diagramme de cas d'utilisation du projet \textit{AutoMaze AI} illustre les différentes interactions entre les acteurs et les fonctionnalités principales du système. L'équipe projet intervient sur toute la chaîne de Machine Learning, de la préparation des données à l'évaluation. L'utilisateur de la démonstration peut classer une image ou lancer un épisode de conduite, tandis que l'encadrante et le jury consultent les résultats. Le diagramme met également en évidence le lien d'\textbf{inclusion} entre la démonstration de conduite et la classification d'une image, puisque chaque obstacle rencontré doit être classé.
-
-\begin{figure}[H]
-  \centering
-  \resizebox{\textwidth}{!}{\input{figures/cas_utilisation}}
-  \caption{Diagramme de cas d'utilisation}
-\end{figure}
-
 \section{Diagramme d'activité}
 
 Le diagramme d'activité décrit le déroulement d'un \textbf{épisode de conduite}, depuis le calcul de l'itinéraire jusqu'à l'arrivée. À chaque pas, le véhicule avance puis vérifie s'il a atteint sa destination. Lorsqu'un obstacle se trouve à moins de 35~m, son image est transmise au modèle, et la classe prédite détermine l'action à appliquer. Les coûts des tronçons sont alors mis à jour, et le trajet est recalculé. Ce diagramme met en évidence la coordination entre la perception, la décision et la planification.
@@ -183,4 +125,4 @@ Le diagramme de composants présente l'organisation logicielle du projet. La cha
 
 \section{Conclusion}
 
-Ce chapitre a permis de formaliser le \textbf{fonctionnement attendu du système AutoMaze AI} à travers l'identification des acteurs, la description des cas d'utilisation et des scénarios de démonstration, ainsi que plusieurs diagrammes UML. Ces représentations ont contribué à clarifier les échanges entre la perception, la décision et la planification, tout en garantissant que les décisions du véhicule reposent uniquement sur les prédictions du modèle. Elles constituent une base solide pour le chapitre suivant, consacré à l'étude et à la préparation des données.
+Ce chapitre a permis de formaliser le \textbf{fonctionnement attendu du système AutoMaze AI} à travers la description des cas d'utilisation et des scénarios de démonstration, ainsi que plusieurs diagrammes UML. Ces représentations ont contribué à clarifier les échanges entre la perception, la décision et la planification, tout en garantissant que les décisions du véhicule reposent uniquement sur les prédictions du modèle. Elles constituent une base solide pour le chapitre suivant, consacré à l'étude et à la préparation des données.
