@@ -26,6 +26,8 @@
 \usepackage{subcaption}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,fit,babel}
+% Pas de mots coupés en fin de ligne dans les boîtes des diagrammes
+\tikzset{every node/.append style={execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}}}
 \usepackage{listings}
 \lstset{basicstyle=\ttfamily\footnotesize, backgroundcolor=\color{black!4}, frame=single, rulecolor=\color{black!20},
         columns=fullflexible, breaklines=true, xleftmargin=4pt, xrightmargin=4pt, aboveskip=0.4em, belowskip=0.2em}

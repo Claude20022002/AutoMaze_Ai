@@ -40,6 +40,8 @@
   \draw[lien] (moteur) -- (perception);
   \draw[lien] (moteur.north east) -- (monde.south west);
   \draw[lien] (interface) -- (moteur);
-  \draw[lien, dashed] (perception.south east) to[bend left=10] (contrat.north west);
-  \draw[lien, dashed] (monde.south) |- (contrat.east);
+  % Perception et Monde dépendent de contracts.py : liens par le couloir central, sans traverser les autres modules
+  \draw[black!65, thick, dashed] (perception.east) -- (monde.west);
+  \fill[black!65] (12,-0.6) circle (1.6pt);
+  \draw[lien, dashed] (12,-0.6) -- (contrat.north);
 \end{tikzpicture}
