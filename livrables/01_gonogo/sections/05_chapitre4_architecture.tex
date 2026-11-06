@@ -1,0 +1,162 @@
+\chapter{Architecture technique et conception des modules}
+\label{chap:architecture}
+
+\section{Architecture globale d'AutoMaze AI}
+
+Le principe est le suivant. Le simulateur connaît la position de chaque objet de son environnement. Le modèle de Machine Learning analyse l'image fournie par la caméra virtuelle et en déduit la nature de l'objet. Le système combine ensuite cette classe prédite avec la position connue. Le planificateur calcule le chemin vers la destination et le recalcule si un obstacle rend le trajet impraticable. Enfin, le contrôleur applique les décisions au véhicule : continuer, ralentir, s'arrêter ou changer de direction.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{!}{0.7\textheight}{\input{figures/architecture}}
+  \caption{Architecture fonctionnelle globale. Le modèle ML (en bleu foncé) est le cœur du projet ; les autres étages servent à la démonstration.}
+  \label{fig:architecture}
+\end{figure}
+
+\section{Environnement de simulation}
+\label{sec:environnement}
+
+Notre environnement reproduit une partie réelle de Casablanca, du Twin Center (Maârif) à la place Mohammed V. Le réseau routier vient d'OpenStreetMap, avec ses sens uniques. Le véhicule roule à 8~m/s, soit environ 29~km/h, et le temps avance par pas d'une seconde. Chaque épisode place 6 obstacles sur l'itinéraire. Trois vues sont proposées : une carte 2D, une vue conducteur et une vue 3D.
+
+Les simulateurs de conduite professionnels offrent des environnements 3D détaillés (figure~\ref{fig:inspiration}). Le nôtre reste volontairement plus simple, car il ne sert qu'à montrer l'usage du modèle.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.49\textwidth}
+    \centering\includegraphics[width=\textwidth]{environnement_vir1.jpg}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.49\textwidth}
+    \centering\includegraphics[width=\textwidth]{environnement_vir2.jpg}
+  \end{subfigure}
+  \caption{Exemples d'environnements virtuels de conduite, qui nous ont servi d'inspiration (sources externes, annexe~\ref{annexe:sources}). Ce ne sont pas des captures de notre simulateur.}
+  \label{fig:inspiration}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{06_simulateur_carte.png}
+  \caption{Notre simulateur, vue carte : itinéraire calculé par Dijkstra, obstacles (?) encore inconnus du véhicule, et à droite l'image donnée au classifieur avec sa prédiction. Carte : © contributeurs OpenStreetMap (ODbL).}
+  \label{fig:notre-simulateur}
+\end{figure}
+
+\section{Acquisition des images par caméra virtuelle}
+\label{sec:camera}
+
+Quand un obstacle se trouve sur l'itinéraire à moins de 35~m, la caméra virtuelle fournit son image au modèle.
+
+\textbf{Un choix de conception important.} Si la caméra filmait les objets 3D du simulateur, le modèle verrait des images de synthèse très différentes des photos sur lesquelles il a appris. Ses performances chuteraient sans que ce soit sa faute. La caméra fournit donc une \emph{vraie photo} de la classe de l'obstacle, tirée du jeu de test, que le modèle n'a jamais vue. Les modèles 3D ne servent qu'à l'affichage. Une même graine donne les mêmes images à tous les classifieurs comparés, et l'image change d'un épisode à l'autre.
+
+\section{Module de classification par Machine Learning}
+\label{sec:module-classification}
+
+Le module reçoit l'image RGB d'un objet, quelle que soit sa taille. Il applique lui-même le prétraitement : mise au carré, réduction à 64~×~64~px, normalisation. Il renvoie ensuite :
+
+\begin{itemize}
+  \item la classe prédite, parmi les six ;
+  \item un score de confiance, le plus grand des six scores ;
+  \item les six scores, dont la somme vaut 1 ;
+  \item le temps de calcul réellement mesuré.
+\end{itemize}
+
+Exemple d'affichage : \og Image \textrightarrow{} Voiture (92~\%) \fg{}. Ce 92~\% est un exemple d'affichage, pas une performance mesurée. Il s'agit d'un score, pas d'une probabilité calibrée : le modèle n'a pas forcément raison 92 fois sur 100.
+
+\textbf{Seuil « Inconnu ».} Sous un certain score, la classe devient « Inconnu » et le véhicule fait un arrêt prudent. Le seuil sera choisi sur le jeu de validation, puis enregistré avec le modèle.
+
+\textbf{Interchangeabilité.} Trois classifieurs respectent la même interface : un mode « simulation » qui teste la logique sans modèle, notre modèle, et un éventuel modèle de référence préentraîné, utilisé seulement comme point de comparaison si l'encadrant l'accepte.
+
+\section{Module de localisation et association des objets}
+
+Le simulateur décrit chaque obstacle par un identifiant et une position sur la carte.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2cm}>{\raggedright\arraybackslash}p{4.3cm}>{\raggedright\arraybackslash}p{2.6cm}Y}
+  \toprule
+  \textbf{Identifiant} & \textbf{Position} & \textbf{Classe prédite} & \textbf{Vraie classe (cachée)} \\
+  \midrule
+  OBJ-01 & Tronçon A \textrightarrow{} B, à 45~m de A & Voiture & Voiture \\
+  OBJ-02 & Tronçon C \textrightarrow{} D, à 12~m de C & Personne & Personne \\
+  OBJ-03 & Tronçon E \textrightarrow{} F, à 30~m de E & Voiture & Camion \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Association.} Chaque image est produite \emph{pour} un obstacle donné. La prédiction est donc rattachée directement à l'objet dont provient l'image, sans projection entre l'image et le monde virtuel. Ce choix est simple et sûr, parce qu'il y a un seul objet par image.
+
+\textbf{Vérité terrain et perception, bien séparées :}
+
+\begin{itemize}
+  \item \textbf{Vérité terrain :} la vraie classe et la position. Elles servent à construire les scénarios, à faire agir l'obstacle selon sa vraie nature (une personne finit de traverser, un camion reste immobile) et à mesurer les erreurs.
+  \item \textbf{Perception :} la classe prédite par notre modèle. C'est la seule que reçoit le système de décision. Une erreur du modèle a donc de vraies conséquences, comme dans l'exemple OBJ-03, qui peut mener à une collision.
+\end{itemize}
+
+\section{Représentation de l'environnement et des obstacles}
+
+Le réseau routier est un graphe orienté : les nœuds sont les intersections, et les arêtes les tronçons de rue. Chaque tronçon a un coût égal à sa longueur en mètres, multipliée par une éventuelle pénalité. Un obstacle peut modifier ce graphe de trois façons :
+
+\begin{itemize}
+  \item \textbf{bloquer} un tronçon, pour toujours ou pendant quelques pas ;
+  \item le \textbf{pénaliser}, c'est-à-dire multiplier son coût ;
+  \item pénaliser aussi les \textbf{tronçons voisins}, pour un gros véhicule.
+\end{itemize}
+
+\section{Algorithme de planification Dijkstra}
+
+L'algorithme de Dijkstra, écrit à la main, calcule le chemin de coût minimal entre la position actuelle et la destination. Après chaque modification du graphe, il est relancé depuis la position du véhicule. Si l'obstacle se trouve sur le tronçon actuel, le véhicule peut faire demi-tour. Les sens uniques sont respectés.
+
+Le chemin le plus court n'est pas toujours le plus rapide ni le plus sûr. Nous partons des distances comme coûts, puis nous ajoutons des pénalités pour les passages moins favorables, par exemple une rue où roule un vélo.
+
+\section{Système de décision}
+
+La décision dépend de la classe prédite. Elle ne se déclenche que pour un obstacle situé sur l'itinéraire, devant le véhicule, à moins de 35~m.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{3.2cm}Y}
+  \toprule
+  \textbf{Situation} & \textbf{Décision} & \textbf{Effet} \\
+  \midrule
+  Aucun obstacle sur la trajectoire & Continuer & Le véhicule suit son itinéraire \\
+  Personne & S'arrêter et attendre & Attente de 5 pas, puis reprise du même trajet \\
+  Vélo ou moto & Ralentir & Tronçon 3 fois plus coûteux ; vitesse divisée par 3 s'il reste le meilleur chemin \\
+  Voiture & Contourner & Tronçon bloqué, puis nouvel itinéraire \\
+  Bus ou camion & Contourner largement & Tronçon bloqué, rues voisines 10 fois plus coûteuses, nouvel itinéraire \\
+  Score trop faible (« Inconnu ») & Arrêt prudent & Attente de 2 pas, tronçon bloqué, nouvel itinéraire \\
+  Aucun chemin possible & Rester arrêté & Nouvel essai à chaque pas, épisode « bloqué » après 30 pas \\
+  Voie dégagée & Reprendre & Fin du blocage temporaire, nouveau calcul \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Limite assumée.} Dans cette première version, l'action dépend seulement de la classe. La distance et la position de l'objet ne servent qu'à déclencher la décision. Une règle plus réaliste tiendrait aussi compte de la distance, de la trajectoire et de la vitesse relative. Par exemple, un piéton sur le trottoir ne demande pas le même arrêt qu'un piéton sur la chaussée. Nous proposons d'ajouter ce raffinement si le temps le permet.
+
+\section{Contrôle du véhicule virtuel}
+
+Le contrôleur reste simplifié : il ne modélise ni les forces ni l'adhérence. À chaque pas, il applique l'une des commandes suivantes :
+
+\begin{itemize}
+  \item \textbf{avancer} de 8~m le long de l'itinéraire ;
+  \item \textbf{ralentir}, en divisant la vitesse par 3 sur un tronçon pénalisé ;
+  \item \textbf{s'arrêter} pendant le nombre de pas décidé ;
+  \item \textbf{changer de direction} en suivant le nouvel itinéraire, ou faire demi-tour si nécessaire ;
+  \item \textbf{reprendre} le déplacement quand la voie est libre.
+\end{itemize}
+
+Une collision est comptée quand le véhicule atteint un obstacle encore présent. Cela arrive par exemple si un camion immobile a été pris pour un vélo : le véhicule ralentit au lieu de contourner.
+
+\section{Communication et intégration des modules}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.2cm}Y}
+  \toprule
+  \textbf{Point d'échange} & \textbf{Rôle} \\
+  \midrule
+  \texttt{simulator/contracts.py} & Seul fichier partagé entre les modules : définit la prédiction, l'obstacle, les actions et l'interface commune des classifieurs \\
+  \texttt{models/metadata.json} & Décrit le modèle : classes dans l'ordre, taille d'entrée, ordre des couleurs, normalisation, seuil \\
+  Poids du modèle & Chargés par le simulateur, qui ne réentraîne jamais le modèle \\
+  Journal des rencontres & Une ligne par obstacle (classe réelle, classe prédite, score, action, temps), utilisée pour mesurer les erreurs \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+Le simulateur vérifie au chargement que l'ordre des classes est le bon. Sinon, un bus pourrait devenir une personne sans aucun message d'erreur. Un test de concordance compare aussi les sorties du simulateur et celles du notebook sur les mêmes images, pour s'assurer que le prétraitement est identique.
