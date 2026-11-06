@@ -19,8 +19,8 @@
   \node[act, below=of decision] (couts) {Mettre à jour les coûts des tronçons et recalculer le trajet};
   \node[choix, below=of couts] (chemin) {Un chemin existe ?};
 
-  \node[act, right=1.3cm of seuil] (inconnu) {« Inconnu » : arrêt prudent};
-  \node[act, left=1.3cm of chemin] (attente) {Attendre (au plus 30 pas), puis épisode « bloqué »};
+  \node[act, text width=3cm, right=1.0cm of seuil] (inconnu) {« Inconnu » : arrêt prudent};
+  \node[act, text width=3.6cm, left=1.0cm of chemin] (attente) {Attendre (au plus 30 pas), puis épisode « bloqué »};
   \node[circle, draw=black, thick, minimum size=0.45cm, right=1.3cm of arrive] (fin) {};
   \node[circle, fill=black, minimum size=0.25cm] at (fin) {};
 
