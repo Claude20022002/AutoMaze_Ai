@@ -1,0 +1,8 @@
+\chapter*{Conclusion générale}
+\addcontentsline{toc}{chapter}{Conclusion générale}
+
+\textbf{Synthèse des choix.} AutoMaze AI classe six usagers de la route à partir de l'image d'un objet. Nous avons retenu COCO 2017, des recadrages carrés de 64~×~64~px et un découpage par photo pour éviter toute fuite de données. Les trois classifieurs du sujet, SVM, Random Forest et k-NN, sont comparés sur des descripteurs HOG, au F1 macro. Les prédictions du modèle guident ensuite un véhicule virtuel qui roule dans les rues de Casablanca : la position des objets vient du simulateur, et leur nature vient uniquement du modèle.
+
+\textbf{Bilan de faisabilité.} Les données sont disponibles et préparées, et les premiers classifieurs dépassent nettement le hasard. L'architecture relie la classification d'un objet à une décision de conduite, et les moyens nécessaires sont gratuits. Le projet nous semble donc réalisable dans les délais, sous réserve de l'accord de notre encadrant sur les trois points de la section~\ref{sec:criteres-go}.
+
+\textbf{Perspectives.} Une fois ces choix validés, nous terminerons le réglage des modèles sur la validation, puis nous mesurerons le modèle final sur le test et sur de nouvelles images. Si le temps le permet, nous affinerons les règles de décision en tenant compte de la distance et de la position des objets, et nous étudierons l'apport d'un CNN entraîné de zéro.
