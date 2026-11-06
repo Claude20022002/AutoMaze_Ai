@@ -1,6 +1,8 @@
 % AutoMaze AI - Livrable 1 : dossier Go/noGo
+% Structure : introduction générale, six chapitres, conclusion, bibliographie et annexes
+% (voir livrables/architecture_gonogo_attendue.txt).
 % Compilation depuis ce dossier : pdflatex main.tex (deux fois, pour le sommaire et les renvois)
-\documentclass[11pt,a4paper]{article}
+\documentclass[11pt,a4paper]{report}
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
@@ -14,8 +16,10 @@
 \usepackage{float}
 \usepackage[table]{xcolor}
 \usepackage{caption}
+\usepackage{subcaption}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,calc,babel}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,fit,babel}
+\usepackage{titlesec}
 \usepackage{hyperref}
 
 \hypersetup{
@@ -25,6 +29,12 @@
   pdftitle={AutoMaze AI - Livrable 1 : dossier Go/noGo},
   pdfauthor={Equipe AutoMaze AI}
 }
+
+% Chapitres plus compacts que le style par défaut de la classe report
+\titleformat{\chapter}[display]{\normalfont\huge\bfseries}{\large\chaptertitlename~\thechapter}{0.4em}{}
+\titlespacing*{\chapter}{0pt}{-1.5em}{1.5em}
+
+\graphicspath{{figures/img/}}
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.6em}
@@ -38,31 +48,24 @@
 % Tout ce qui reste à compléter ressort en orange : à chercher avant la remise
 \newcommand{\acompleter}[1]{\textcolor{orange!85!black}{\textbf{[#1]}}}
 
-% Couleur d'accent des figures
+% Couleurs des figures
 \definecolor{accent}{HTML}{1F6FB2}
+\definecolor{integration}{HTML}{2E8B57}
 
 \begin{document}
 
 \input{sections/00_page_de_garde}
 
 \tableofcontents
-\vspace{1em}
-
-\section*{Demande}
-Nous sollicitons le Go pour développer un classifieur capable de reconnaître 6 usagers de la route. Le modèle sera entraîné de zéro et testé sur de nouvelles images, puis utilisé dans un simulateur de conduite dans les rues de Casablanca. Il nous reste à obtenir l'avis de notre encadrant sur trois points : le jeu de données, le modèle de référence préentraîné et le périmètre du simulateur (section~\ref{sec:validation}).
-
-\newpage
 
 \input{sections/01_introduction}
-\input{sections/02_presentation}
-\input{sections/03_problematique}
-\input{sections/04_objectifs}
-\input{sections/05_besoins}
-\input{sections/06_cahier_des_charges}
-\input{sections/07_choix_technologiques}
-\input{sections/08_analyse_conception}
-\input{sections/09_methodologie}
-\input{sections/10_planification}
-\input{sections/11_points_a_valider}
+\input{sections/02_chapitre1_projet}
+\input{sections/03_chapitre2_analyse}
+\input{sections/04_chapitre3_donnees}
+\input{sections/05_chapitre4_architecture}
+\input{sections/06_chapitre5_methodologie}
+\input{sections/07_chapitre6_faisabilite}
+\input{sections/08_conclusion}
+\input{sections/09_bibliographie_annexes}
 
 \end{document}

@@ -1,6 +1,24 @@
-\section{Introduction}
-\label{sec:introduction}
+\chapter*{Introduction générale}
+\addcontentsline{toc}{chapter}{Introduction générale}
+\label{chap:introduction}
 
-Pour conduire seul, un véhicule doit d'abord comprendre ce qu'il a devant lui. Face à un piéton, il doit s'arrêter ; face à un camion immobile, il vaut mieux le contourner. Reconnaître ce qui se trouve sur la route est donc une étape essentielle de sa perception, et c'est à cette étape que s'intéresse notre projet PACTE de 4\textsuperscript{e} année à HESTIM.
+\textbf{Contexte.} Un véhicule autonome doit percevoir son environnement, décider puis agir, sans conducteur pour corriger ses erreurs. Pour cela, il doit d'abord comprendre ce qui se trouve devant lui. Un piéton qui traverse appelle un arrêt, alors qu'un camion à l'arrêt se contourne. Une erreur de reconnaissance peut donc conduire à une mauvaise décision.
 
-Le sujet nous demande de choisir un jeu de données, de comparer plusieurs modèles de Machine Learning et de comprendre quelles classes leur posent le plus de difficultés. Nous devrons ensuite tester le modèle final sur des images qu'il n'a jamais vues. Ce dossier explique comment nous comptons nous y prendre et prépare la décision de Go/noGo, qui représente 15~\% de la note finale.
+\textbf{La perception routière.} La perception d'un véhicule autonome comporte plusieurs tâches : trouver les objets dans l'image (la détection), dire de quoi il s'agit (la classification), puis estimer leur position et leur mouvement. Notre projet PACTE de 4\textsuperscript{e} année porte sur la classification : à partir de l'image d'un objet, reconnaître de quel usager de la route il s'agit.
+
+\textbf{Problématique.} Nous chercherons à savoir si un modèle entraîné de zéro sur un jeu de données de taille limitée peut reconnaître les usagers de la route assez bien pour guider les décisions d'un véhicule virtuel. Le chapitre~\ref{chap:projet} détaille cette question.
+
+\textbf{Objectifs.} Le cœur du projet reste celui du sujet : constituer un jeu de données, extraire des caractéristiques, comparer SVM, Random Forest et k-NN, analyser les classes difficiles, puis prédire la classe de nouvelles images. Nous y ajoutons une démonstration : un véhicule virtuel qui utilise nos prédictions pour rejoindre sa destination dans les rues de Casablanca.
+
+\textbf{Démarche.} Ce dossier suit la logique du projet :
+
+\begin{itemize}
+  \item le chapitre~\ref{chap:projet} présente le projet, son périmètre et son cahier des charges ;
+  \item le chapitre~\ref{chap:analyse} décrit le fonctionnement attendu du système à l'aide de diagrammes ;
+  \item le chapitre~\ref{chap:donnees} étudie et prépare les données ;
+  \item le chapitre~\ref{chap:architecture} détaille l'architecture technique de chaque module ;
+  \item le chapitre~\ref{chap:methodologie} fixe la méthode d'expérimentation et d'évaluation ;
+  \item le chapitre~\ref{chap:faisabilite} rassemble les preuves de faisabilité et les critères de la décision Go/noGo.
+\end{itemize}
+
+Ce dossier prépare la décision de Go/noGo, qui compte pour 15~\% de la note finale.
