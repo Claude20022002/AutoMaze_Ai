@@ -83,7 +83,130 @@ Au regard de ces critères, nous avons retenu \textbf{COCO 2017}, sous réserve 
 \end{tabularx}
 \end{table}
 
-Concrètement, nous téléchargeons d'abord le fichier d'annotations de \texttt{train2017}, qui décrit chaque objet sans contenir les images. Nous sélectionnons ensuite les objets utiles, puis nous téléchargeons uniquement les photos correspondantes à partir de leur adresse. Les licences imposent de citer COCO et de ne pas redistribuer les images : celles-ci restent donc hors du dépôt Git, qui ne conserve que de petites vignettes dans les figures.
+Les licences imposent de citer COCO et de ne pas redistribuer les images. Celles-ci restent donc hors du dépôt Git, qui ne conserve que de petites vignettes dans les figures.
+
+\section{Acquisition des données à partir des annotations}
+\label{sec:acquisition}
+
+\subsection{Pourquoi récupérer les annotations plutôt que toutes les images}
+
+COCO se compose de deux parties distinctes : les \textbf{images}, d'une part, et les \textbf{annotations}, d'autre part, qui décrivent le contenu de chaque image dans un fichier texte au format JSON. Plutôt que de télécharger l'ensemble de la base, nous avons fait le choix de récupérer \textbf{uniquement les annotations}, puis de ne télécharger que les photos réellement utiles. Ce choix repose sur plusieurs raisons :
+
+\begin{itemize}
+  \item \textbf{Un volume beaucoup plus faible}\\
+  Les images de \texttt{train2017} représentent environ 18~Go, alors que l'archive des annotations ne pèse qu'environ 250~Mo. Or, nous n'avons besoin que de 10~672 photos sur 118~287, soit environ 9~\% de la base.
+  \item \textbf{Un stockage compatible avec Google Drive}\\
+  Comme le montre le flux de développement (figure~\ref{fig:flux}), nos données sont stockées dans un dossier Google Drive partagé. L'espace gratuit d'un compte Google étant limité à 15~Go, il ne permettrait pas d'accueillir les 18~Go d'images. Nos recadrages finaux n'occupent qu'environ 64~Mo.
+  \item \textbf{Un gain de temps}\\
+  Télécharger et décompresser 18~Go sur Colab à chaque session serait long, d'autant que le disque d'une session Colab est effacé à sa fermeture.
+  \item \textbf{Une sélection possible avant tout téléchargement}\\
+  Les annotations contiennent toutes les informations nécessaires pour choisir les objets, les filtrer et répartir les photos entre les jeux, sans ouvrir une seule image.
+\end{itemize}
+
+\subsection{Comment les données sont récupérées}
+
+La récupération des données suit les étapes suivantes, réalisées dans les notebooks 01 et 02 :
+
+\begin{enumerate}
+  \item \textbf{Téléchargement des annotations}\\
+  L'archive \texttt{annotations\_trainval2017.zip} est téléchargée depuis le site officiel de COCO, puis décompressée. Le fichier \texttt{instances\_train2017.json} décrit 118~287 images, 860~001 objets et 80 catégories.
+  \item \textbf{Exploration à partir des annotations}\\
+  Les effectifs par classe, la taille des objets et le déséquilibre présentés dans ce chapitre sont calculés directement à partir de ce fichier, sans télécharger d'image.
+  \item \textbf{Sélection des objets}\\
+  Nous conservons les objets de nos six classes, en écartant les foules et les objets de moins de 32~px de côté, puis nous tirons au plus 2~500 objets par classe.
+  \item \textbf{Répartition des photos}\\
+  Les objets sont répartis entre les jeux d'entraînement, de validation et de test selon l'identifiant de leur photo, toujours à partir des annotations.
+  \item \textbf{Téléchargement ciblé}\\
+  Chaque photo sélectionnée est téléchargée une seule fois grâce à son adresse (\texttt{coco\_url}). Tous ses objets sont alors recadrés à l'aide de leur boîte, et seuls les recadrages de 64~×~64~px sont conservés. La photo complète n'est pas stockée.
+  \item \textbf{Stockage sur Google Drive}\\
+  Les annotations, la liste des objets retenus, le fichier de découpage et les recadrages sont enregistrés dans le dossier Drive partagé de l'équipe. Les recadrages sont également regroupés dans une archive, décompressée sur le disque de Colab au début de l'entraînement, ce qui évite de lire des milliers de petits fichiers depuis Drive.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Volume des données stockées sur Google Drive}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{5.2cm}>{\raggedright\arraybackslash}p{3.2cm}Y}
+  \toprule
+  \entete \textbf{Élément} & \textbf{Volume} & \textbf{Rôle} \\
+  \midrule
+  Archive des annotations & Environ 250~Mo & Source de toutes les informations sur les objets \\
+  Fichier \texttt{instances\_train2017.json} & Environ 470~Mo & Annotations décompressées, lues par les notebooks \\
+  Recadrages de 64~×~64~px & 14~990 images, environ 64~Mo & Données d'entraînement, de validation et de test \\
+  Fichiers \texttt{objets\_coco.csv} et \texttt{splits.csv} & Quelques Mo & Liste des objets et découpage commun à l'équipe \\
+  Images complètes de COCO & Non stockées & Téléchargées une à une, puis supprimées après recadrage \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Exemple d'annotation}
+
+Pour illustrer ce fonctionnement, voici une annotation réelle extraite du fichier \texttt{instances\_train2017.json}. Elle décrit une voiture présente sur la photo \texttt{000000384827.jpg}. Les informations utiles sont réparties entre trois parties du fichier : la description de l'image, la description de l'objet et la catégorie.
+
+\begin{figure}[H]
+\begin{lstlisting}
+"images": [ { "id": 384827, "file_name": "000000384827.jpg", "width": 640, "height": 480,
+              "coco_url": "http://images.cocodataset.org/train2017/000000384827.jpg",
+              "license": 2, "date_captured": "2013-11-17 07:28:42" } ]
+
+"annotations": [ { "id": 1193435, "image_id": 384827, "category_id": 3,
+                   "bbox": [177.98, 287.87, 81.98, 80.9], "area": 2355.63, "iscrowd": 0,
+                   "segmentation": [[177.98, 287.87, 231.91, 291.11, ...]] } ]
+
+"categories": [ { "id": 3, "name": "car", "supercategory": "vehicle" } ]
+\end{lstlisting}
+\caption{Extrait réel du fichier d'annotations de COCO \texttt{train2017} (segmentation raccourcie)}
+\label{fig:annotation-json}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Champs de l'annotation utilisés dans le projet}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.1cm}>{\raggedright\arraybackslash}p{3.6cm}Y}
+  \toprule
+  \entete \textbf{Champ} & \textbf{Valeur de l'exemple} & \textbf{Utilisation dans le projet} \\
+  \midrule
+  \texttt{category\_id} & 3, soit \og car \fg{} & Attribue la classe \og voiture \fg{} sans étiquetage manuel \\
+  \texttt{bbox} & [177,98 ; 287,87 ; 81,98 ; 80,9] & Position (x, y) du coin supérieur gauche, largeur et hauteur de la boîte, utilisées pour le recadrage \\
+  \texttt{iscrowd} & 0 & Indique un objet isolé : l'objet est conservé \\
+  Plus petit côté de \texttt{bbox} & 80,9~px & Supérieur à 32~px : l'objet passe le filtre de taille \\
+  \texttt{image\_id} & 384827 & Rattache l'objet à sa photo, ce qui permet le découpage par photo \\
+  \texttt{coco\_url} & Adresse de la photo & Permet de télécharger uniquement cette photo \\
+  \texttt{width}, \texttt{height} & 640 et 480~px & Permettent de gérer les recadrages qui dépassent le bord de la photo \\
+  \texttt{license} & 2, soit CC~BY-NC~2.0 & Permet de connaître les conditions d'utilisation de la photo \\
+  \texttt{segmentation} & Contour détaillé de l'objet & Non utilisé : la boîte englobante suffit à notre classification \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+À partir de cette annotation, le recadrage est obtenu automatiquement : un carré de 98~px de côté, soit le plus grand côté de la boîte augmenté d'une marge de 10~\% de chaque côté, est découpé autour du centre de la voiture, puis réduit à 64~×~64~px (figure~\ref{fig:annotation-recadrage}). Il faut noter que cette même photo contient quatre voitures annotées. Grâce à leur \texttt{image\_id} commun, elles sont toutes placées dans le même jeu de données.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{exemple_annotation.jpg}
+  \caption{De l'annotation au recadrage : boîte de l'annotation 1193435 sur la photo d'origine, puis recadrage de 64~×~64~px (photo COCO 000000384827, licence CC BY-NC 2.0)}
+  \label{fig:annotation-recadrage}
+\end{figure}
+
+\subsection{Bénéfices de l'utilisation des annotations}
+
+L'utilisation des annotations présentes dans COCO apporte plusieurs bénéfices majeurs au projet :
+
+\begin{itemize}
+  \item \textbf{Aucun étiquetage manuel}\\
+  Chaque objet possède déjà sa catégorie, vérifiée par les équipes de COCO. Étiqueter et encadrer nous-mêmes 15~000 objets n'aurait pas été réalisable dans les délais du projet.
+  \item \textbf{Un découpage automatique}\\
+  Les boîtes englobantes permettent d'extraire chaque objet de sa photo sans intervention humaine.
+  \item \textbf{Un nettoyage simple et traçable}\\
+  Les champs \texttt{iscrowd} et \texttt{bbox} suffisent à écarter les foules et les objets trop petits, et chaque objet conservé reste identifié par son numéro d'annotation.
+  \item \textbf{Une évaluation fiable}\\
+  Le champ \texttt{image\_id} permet de regrouper les objets par photo et de garantir qu'aucune photo n'apparaît dans deux jeux différents.
+  \item \textbf{Une exploration rapide}\\
+  Les statistiques sur les classes et la taille des objets sont obtenues en quelques secondes, avant tout téléchargement d'image.
+  \item \textbf{Un respect des licences}\\
+  Chaque image est liée à sa licence, ce qui permet de connaître ses conditions d'utilisation.
+\end{itemize}
 
 \section{Présentation des classes}
 
