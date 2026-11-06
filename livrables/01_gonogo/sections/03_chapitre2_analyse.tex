@@ -1,0 +1,142 @@
+\chapter{Analyse fonctionnelle et conception du système}
+\label{chap:analyse}
+
+\section{Identification des acteurs}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{2.4cm}Y}
+  \toprule
+  \textbf{Acteur} & \textbf{Type} & \textbf{Rôle} \\
+  \midrule
+  Équipe projet & Humain & Prépare les données, entraîne et compare les modèles, évalue le modèle final \\
+  Utilisateur de la démo & Humain & Classe une image ou lance un épisode de conduite \\
+  Encadrant & Humain & Valide les choix (dataset, périmètre) et suit l'avancement \\
+  Jury & Humain & Juge les résultats, le rapport et la démonstration \\
+  Simulateur & Système & Fournit l'environnement, les positions des objets et leurs images \\
+  Modèle ML & Système & Renvoie la classe et le score d'une image \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Description des cas d'utilisation}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{2.3cm}Y}
+  \toprule
+  \textbf{ID} & \textbf{Cas d'utilisation} & \textbf{Acteur} & \textbf{Résultat attendu} \\
+  \midrule
+  UC1 & Préparer les données & Équipe & Recadrages filtrés, normalisés et découpés en train, validation et test \\
+  UC2 & Entraîner et comparer les classifieurs & Équipe & Tableau comparatif de SVM, Random Forest et k-NN sur la validation \\
+  UC3 & Évaluer le modèle final & Équipe, encadrant & Scores sur le test, matrice de confusion, analyse des erreurs \\
+  UC4 & Classer une nouvelle image & Utilisateur & \og photo.jpg \textrightarrow{} Voiture (92~\%) \fg{} \\
+  UC5 & Lancer une démonstration de conduite & Utilisateur, jury & Le véhicule rejoint sa destination en réagissant aux obstacles \\
+  UC6 & Comparer les classifieurs dans le simulateur & Équipe & Collisions, fautes graves et décisions inadaptées sur plusieurs épisodes \\
+  UC7 & Consulter les résultats et le rapport & Encadrant, jury & Notebooks commentés, figures et rapport \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Scénarios de fonctionnement}
+\label{sec:scenarios}
+
+Ces quatre scénarios servent à concevoir les tests et à montrer à l'encadrant ce que le système final devra accomplir. Les images sont des illustrations d'inspiration issues d'autres simulateurs : elles ne montrent pas le nôtre, dont une capture figure en section~\ref{sec:environnement}.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth,height=4.2cm,keepaspectratio]{scenario1route_libre.jpg}
+    \caption{Scénario 1 : route libre.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth,height=4.2cm,keepaspectratio]{scenario2_presence_pieton.jpg}
+    \caption{Scénario 2 : présence d'un piéton.}
+  \end{subfigure}
+
+  \vspace{0.6em}
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth,height=4.6cm,keepaspectratio]{scenario3route_bloquee.jpg}
+    \caption{Scénario 3 : route bloquée.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth,height=4.6cm,keepaspectratio]{scenario4contournement.jpg}
+    \caption{Scénario 4 : contournement.}
+  \end{subfigure}
+  \caption{Les quatre scénarios de démonstration (illustrations externes, annexe~\ref{annexe:sources}).}
+  \label{fig:scenarios}
+\end{figure}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.8cm}YY}
+  \toprule
+  \textbf{Scénario} & \textbf{Situation} & \textbf{Comportement attendu} \\
+  \midrule
+  1. Route libre (cas nominal) & Aucun obstacle sur l'itinéraire & Le véhicule suit le chemin calculé par Dijkstra jusqu'à la destination \\
+  2. Présence d'un piéton & Un objet classé « personne » est sur l'itinéraire, à moins de 35~m & Le véhicule s'arrête, attend que la personne traverse, puis repart sur le même trajet \\
+  3. Route bloquée & Un objet classé « voiture », « bus » ou « camion » occupe le tronçon & Le tronçon est marqué bloqué dans le graphe, et Dijkstra cherche un autre chemin \\
+  4. Contournement & Un nouveau chemin existe & Le véhicule change de rue, ou fait demi-tour si besoin, puis reprend sa progression \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Cas d'erreur.} Si le score est trop faible, la classe devient « Inconnu » et le véhicule fait un arrêt prudent. S'il n'existe plus aucun chemin, le véhicule reste arrêté ; au bout de 30 pas, l'épisode est déclaré « bloqué ».
+
+\section{Diagramme de cas d'utilisation}
+
+\begin{figure}[H]
+  \centering
+  \input{figures/cas_utilisation}
+  \caption{Diagramme de cas d'utilisation.}
+\end{figure}
+
+\section{Diagramme d'activité}
+
+Le diagramme suivant décrit un épisode de conduite, du calcul de l'itinéraire à l'arrivée.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{!}{0.82\textheight}{\input{figures/activite}}
+  \caption{Diagramme d'activité d'un épisode.}
+\end{figure}
+
+\section{Diagramme de séquence}
+
+Ce diagramme montre les échanges entre modules quand le véhicule rencontre un obstacle. La vraie classe de l'objet n'apparaît dans aucun message : le système de décision ne reçoit que la classe prédite.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{\input{figures/sequence}}
+  \caption{Diagramme de séquence du traitement d'un obstacle.}
+\end{figure}
+
+\section{Diagramme de composants}
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{\input{figures/composants}}
+  \caption{Diagramme de composants. Les flèches pleines indiquent les appels ou les échanges de fichiers ; les flèches pointillées, l'usage des contrats partagés.}
+\end{figure}
+
+\section{Description des interactions entre modules}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}p{2.7cm}Y}
+  \toprule
+  \textbf{De} & \textbf{Vers} & \textbf{Information échangée} \\
+  \midrule
+  Notebooks & Simulateur & Poids du modèle et \texttt{metadata.json} : classes, taille d'entrée, ordre des couleurs, normalisation, seuil \\
+  Moteur & Caméra virtuelle & Obstacle rencontré ; en retour, une image RGB \\
+  Moteur & Classifieur & Image RGB ; en retour, une \texttt{Prediction} : classe, score, 6 probabilités, temps de calcul \\
+  Moteur & Décision & Classe prédite et tronçon de l'obstacle ; en retour, l'action à appliquer \\
+  Décision & Planificateur & Tronçons bloqués ou pénalisés ; en retour, un nouvel itinéraire \\
+  Moteur & Contrôleur & Itinéraire, attente ou ralentissement ; en retour, la position du véhicule \\
+  Moteur & Interface & État de l'épisode, dernière image, prédiction et décision \\
+  \bottomrule
+\end{tabularx}
+\end{center}
