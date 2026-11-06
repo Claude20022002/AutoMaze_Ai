@@ -3,15 +3,15 @@
     etage/.style={draw=accent, fill=accent!7, rounded corners=3pt, align=center, font=\footnotesize,
                   text width=12.2cm, minimum height=1.0cm, inner sep=4pt},
     bloc/.style={draw=black!60, fill=white, rounded corners=3pt, align=center, font=\footnotesize,
-                 text width=3.6cm, minimum height=1.05cm, inner sep=3pt},
+                 text width=4.4cm, minimum height=1.05cm, inner sep=3pt},
     ml/.style={bloc, draw=accent, fill=accent!18, very thick},
     fleche/.style={-{Stealth[length=2.2mm]}, draw=black!70, thick}
   ]
   \node[etage] (env) at (0,0) {\textbf{1. Environnement de simulation}\\Routes · Véhicule · Objets routiers · Destination};
 
-  \node[bloc] (camera) at (-4.3,-1.75) {\textbf{Caméra virtuelle}\\Image de l'objet};
-  \node[ml] (modele) at (-4.3,-3.35) {\textbf{Modèle ML}\\Classification de l'objet};
-  \node[bloc] (infos) at (4.3,-2.55) {\textbf{Informations du simulateur}\\Coordonnées et positions des objets};
+  \node[bloc] (camera) at (-3.8,-1.75) {\textbf{Caméra virtuelle}\\Image de l'objet};
+  \node[ml] (modele) at (-3.8,-3.35) {\textbf{Modèle ML}\\Classification de l'objet};
+  \node[bloc] (infos) at (3.8,-2.55) {\textbf{Informations du simulateur}\\Coordonnées et positions des objets\\(la vraie classe n'est pas transmise)};
   \node[bloc] (etat) at (0,-4.75) {\textbf{État des obstacles}\\Position + nature identifiée};
 
   \node[etage] (fusion) at (0,-6.3) {\textbf{2. Fusion des informations et représentation de l'environnement}\\Association de la classe prédite aux coordonnées de l'objet correspondant};
@@ -36,6 +36,4 @@
   % Le véhicule se déplace dans l'environnement : la boucle reprend
   \draw[fleche, draw=integration] (but.west) -- ++(-6.9,0) |- node[pos=0.25, left, font=\scriptsize, text=integration, align=right] {nouvelle\\position} (env.west);
 
-  % Ce que le simulateur ne transmet pas
-  \node[font=\scriptsize, text=black!65, align=center, text width=3.8cm] at (4.3,-3.95) {La vraie classe de l'objet n'est jamais transmise à la décision};
 \end{tikzpicture}
