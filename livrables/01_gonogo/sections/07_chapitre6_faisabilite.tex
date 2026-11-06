@@ -95,6 +95,46 @@ Les éléments suivants démontrent que le projet est réalisable, sans pour aut
 \end{tabularx}
 \end{table}
 
+\subsection{Déroulement des comparaisons préliminaires}
+
+Les comparaisons préliminaires constituent la preuve la plus directe de la faisabilité du projet. Il est donc important de préciser avec quoi, comment et pourquoi elles ont été réalisées.
+
+\textbf{Avec quoi ?} Les comparaisons s'appuient sur les données préparées au chapitre~\ref{chap:donnees} : \textbf{10~495 images d'entraînement} et \textbf{2~246 images de validation}, réparties de manière équilibrée entre les six classes. Le jeu de test n'a pas été utilisé. Chaque image est décrite par son descripteur \textbf{HOG} de 1~764 valeurs. Les modèles proviennent des bibliothèques scikit-learn et XGBoost, et tous les calculs ont été réalisés sur un processeur ordinaire de 12 cœurs logiques, sans GPU.
+
+\textbf{Comment ?} Pour chaque famille de modèles, plusieurs réglages ont été testés. Chaque réglage a été entraîné sur le jeu d'entraînement, puis évalué sur le jeu de validation, avec les mêmes images et dans le même ordre pour tous les modèles. Pour chaque essai, nous avons relevé l'accuracy, la précision, le rappel, le F1 macro et le temps d'entraînement. Le meilleur réglage de chaque famille a ensuite été retenu selon son F1 macro, et la matrice de confusion du meilleur modèle a été analysée. Deux scores planchers servent de point de comparaison : un modèle qui répond toujours la même classe obtient un F1 macro de 0,048, et un modèle qui tire au hasard selon les fréquences obtient 0,171.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Réglages testés lors des comparaisons préliminaires (jeu de validation)}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.3cm}Yc>{\raggedright\arraybackslash}p{2.6cm}cc}
+  \toprule
+  \entete \textbf{Famille} & \textbf{Réglages testés} & \textbf{Essais} & \textbf{Meilleur réglage} & \textbf{F1 macro} & \textbf{Entraînement} \\
+  \midrule
+  SVM linéaire & C de 0,001 à 1, et une variante HOG à cellules de 4~px & 5 & C = 0,001 & 0,494 & 34~s \\
+  SVM RBF & C = 1 ou 10 & 2 & C = 10 & \textbf{0,591} & 120~s \\
+  Random Forest & 100 ou 300 arbres, profondeur libre ou limitée à 20 & 3 & 300 arbres, profondeur 20 & 0,517 & 21~s \\
+  k-NN & k = 5, 11 ou 21, et PCA à 50, 100 ou 200 dimensions & 9 & k = 11, PCA 200 & 0,470 & 1~s \\
+  XGBoost & Profondeur 4 ou 6, jusqu'à 400 arbres & 2 & Profondeur 4 & 0,571 & 245~s \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+Au total, les \textbf{21 essais} ont demandé 22 minutes d'entraînement. Il faut noter que XGBoost s'arrête lorsque son score de validation ne progresse plus, ce qui rend son résultat légèrement optimiste. De manière générale, les scores de validation servent à choisir les réglages, et seul le jeu de test, utilisé à la fin, fournira une mesure définitive.
+
+\textbf{Pourquoi ?} Ces comparaisons répondent à quatre objectifs :
+
+\begin{itemize}
+  \item \textbf{Vérifier la faisabilité}\\
+  Elles montrent que des modèles simples, entraînés sur nos données, reconnaissent les six classes bien mieux que le hasard.
+  \item \textbf{Identifier la meilleure famille}\\
+  Elles désignent le SVM à noyau RBF comme référence, que toute amélioration future devra dépasser.
+  \item \textbf{Repérer les classes difficiles}\\
+  La matrice de confusion du SVM permet d'identifier dès maintenant les confusions entre le camion, la voiture et le bus.
+  \item \textbf{Estimer le coût de calcul}\\
+  Elles confirment que l'entraînement reste réalisable sans GPU, dans des délais compatibles avec le planning.
+\end{itemize}
+
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.7\textwidth]{03_comparaison_familles.png}

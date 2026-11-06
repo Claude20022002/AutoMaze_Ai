@@ -27,9 +27,63 @@ Plusieurs jeux de données publics ont été étudiés afin de trouver celui qui
 
 \section{Comparaison et justification du dataset retenu}
 
-Nous avons retenu \textbf{COCO 2017}, sous réserve de la validation de notre encadrante. Ce choix repose sur plusieurs critères. COCO est le seul dataset étudié qui couvre nos six classes avec de \textbf{vraies photos}, prises dans des conditions variées, et des \textbf{annotations de référence}. Ses boîtes englobantes permettent de découper chaque objet automatiquement. De plus, il n'est pas nécessaire de télécharger les 18~Go d'images, puisque seules les photos utiles sont récupérées grâce à leur adresse.
+Le descriptif du projet laisse le choix du jeu de données à l'équipe, en demandant seulement qu'il contienne des images d'objets routiers. Pour départager les options étudiées, nous avons défini cinq critères, directement liés aux besoins du projet :
 
-Les annotations sont publiées sous licence CC~BY~4.0, et chaque image conserve la licence Flickr choisie par son auteur. Un usage scolaire est donc possible, à condition de citer COCO et de ne pas redistribuer les images. CIFAR reste notre solution de secours, malgré sa résolution très faible.
+\begin{itemize}
+  \item \textbf{Couverture des classes}\\
+  Le dataset doit contenir les six classes retenues, sans devoir en abandonner une.
+  \item \textbf{Réalisme des images}\\
+  Les photos doivent montrer des objets dans des situations réelles et variées, proches de ce que verrait un véhicule.
+  \item \textbf{Résolution suffisante}\\
+  Les objets doivent rester reconnaissables une fois recadrés, ce qui exclut les images trop petites.
+  \item \textbf{Annotations par objet}\\
+  Chaque objet doit être localisé par une boîte, afin de pouvoir le découper automatiquement.
+  \item \textbf{Licence et documentation}\\
+  Le dataset doit être documenté, cité dans la littérature et utilisable dans un cadre scolaire.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Comparaison des datasets selon nos critères}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.1cm}YYYY}
+  \toprule
+  \entete \textbf{Critère} & \textbf{COCO 2017} & \textbf{CIFAR-10/100} & \textbf{Pascal VOC} & \textbf{Kaggle} \\
+  \midrule
+  Couverture des 6 classes & Oui & Oui, en combinant les deux & Non (5 sur 6) & Variable \\
+  Réalisme des images & Oui, scènes réelles variées & Faible, objets isolés & Oui & Variable \\
+  Résolution & Médiane de 640~×~480~px & 32~×~32~px & Correcte & Variable \\
+  Annotations par objet & Oui, boîtes englobantes & Non, une étiquette par image & Oui & Variable \\
+  Documentation et licence & Article de référence, licences précisées & Documenté & Documenté & Inégales \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+Au regard de ces critères, nous avons retenu \textbf{COCO 2017}, sous réserve de la validation de notre encadrante. Il s'agit du seul dataset étudié qui remplit l'ensemble des critères : il couvre nos six classes avec de \textbf{vraies photos}, prises dans des conditions variées, et fournit des \textbf{annotations de référence} pour chaque objet. De plus, il n'est pas nécessaire de télécharger les 18~Go d'images, puisque seules les photos utiles sont récupérées grâce à leur adresse. CIFAR reste notre solution de secours, malgré sa résolution très faible.
+
+\subsection{Source et description du dataset retenu}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Fiche descriptive du dataset COCO 2017}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.6cm}Y}
+  \toprule
+  \entete \textbf{Élément} & \textbf{Description} \\
+  \midrule
+  Nom & COCO (\textit{Common Objects in Context}), version 2017 \\
+  Auteurs & Microsoft et plusieurs équipes universitaires, publication de référence de Lin et al. (2014) \cite{coco} \\
+  Source & Site officiel \url{https://cocodataset.org}, rubrique \textit{Download} \\
+  Contenu & 80 catégories d'objets du quotidien, dont nos six classes \\
+  Volume & 118~287 images d'entraînement (\texttt{train2017}) et 5~000 images de validation (\texttt{val2017}) \\
+  Annotations & Fichiers JSON : catégorie, boîte englobante et indicateur de foule pour chaque objet \\
+  Licences & Annotations sous licence CC~BY~4.0, images sous la licence Flickr choisie par chaque auteur \\
+  Utilisation dans le projet & \texttt{train2017} pour constituer nos jeux d'entraînement, de validation et de test, et \texttt{val2017} réservé aux tests sur de nouvelles images \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+Concrètement, nous téléchargeons d'abord le fichier d'annotations de \texttt{train2017}, qui décrit chaque objet sans contenir les images. Nous sélectionnons ensuite les objets utiles, puis nous téléchargeons uniquement les photos correspondantes à partir de leur adresse. Les licences imposent de citer COCO et de ne pas redistribuer les images : celles-ci restent donc hors du dépôt Git, qui ne conserve que de petites vignettes dans les figures.
 
 \section{Présentation des classes}
 
