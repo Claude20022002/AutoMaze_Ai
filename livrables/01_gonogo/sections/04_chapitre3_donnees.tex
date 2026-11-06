@@ -1,47 +1,56 @@
 \chapter{Étude et préparation des données}
 \label{chap:donnees}
 
+\section{Introduction}
+
+La qualité d'un modèle de Machine Learning dépend en grande partie des données sur lesquelles il est entraîné. Avant tout apprentissage, il est donc indispensable de choisir un \textbf{jeu de données adapté}, d'en comprendre la composition et de le préparer avec rigueur. Ce chapitre présente l'étude des datasets disponibles, la justification de notre choix, l'analyse quantitative et qualitative des données retenues, puis les différentes étapes de préparation : nettoyage, redimensionnement, normalisation et séparation en jeux d'entraînement, de validation et de test.
+
 \section{Étude des datasets disponibles}
 
-\begin{center}
+Plusieurs jeux de données publics ont été étudiés afin de trouver celui qui répond le mieux aux besoins du projet.
+
+\begin{table}[H]
+\centering
 \small
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{2.1cm}YY}
+\caption{Comparaison des datasets étudiés}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{2.2cm}YY}
   \toprule
-  \textbf{Option} & \textbf{Classes couvertes} & \textbf{Atouts} & \textbf{Limites} \\
+  \entete \textbf{Dataset} & \textbf{Classes couvertes} & \textbf{Atouts} & \textbf{Limites} \\
   \midrule
-  \href{https://cocodataset.org/\#download}{COCO 2017} & Les 6 & Photos réelles, une boîte annotée par objet & Fort déséquilibre, beaucoup de petits objets, recadrages à faire \\
-  CIFAR-10 + CIFAR-100 & Les 6, en combinant les deux & Téléchargement simple, images déjà centrées & 32~×~32~px seulement, peu de scènes routières \\
-  Pascal VOC 2012 & 5 sur 6 & Annotations soignées, taille raisonnable & Pas de classe camion \\
-  Jeux Kaggle « véhicules » & Variable & Prêts à l'emploi & Qualité et licences inégales, souvent sans personne ni vélo \\
+  \href{https://cocodataset.org/\#download}{COCO 2017} & Les 6 & Photos réelles, une boîte annotée par objet & Fort déséquilibre, nombreux petits objets, recadrages à réaliser \\
+  CIFAR-10 et CIFAR-100 & Les 6, en combinant les deux & Téléchargement simple, images déjà centrées & Images de 32~×~32~px seulement, peu de scènes routières \\
+  Pascal VOC 2012 & 5 sur 6 & Annotations soignées, taille raisonnable & Absence de la classe camion \\
+  Jeux Kaggle \og véhicules \fg{} & Variable & Prêts à l'emploi & Qualité et licences inégales, souvent sans personne ni vélo \\
   \bottomrule
 \end{tabularx}
-\end{center}
+\end{table}
 
 \section{Comparaison et justification du dataset retenu}
 
-Nous retenons \textbf{COCO 2017}, sous réserve de l'accord de l'encadrant. C'est la seule option qui couvre nos six classes avec de vraies photos, prises dans des conditions variées, et des annotations de référence. Ses boîtes nous permettent de découper chaque objet. Nous n'avons pas à télécharger les 18~Go d'images : seules les photos utiles sont récupérées, grâce à leur adresse.
+Nous avons retenu \textbf{COCO 2017}, sous réserve de la validation de notre encadrante. Ce choix repose sur plusieurs critères. COCO est le seul dataset étudié qui couvre nos six classes avec de \textbf{vraies photos}, prises dans des conditions variées, et des \textbf{annotations de référence}. Ses boîtes englobantes permettent de découper chaque objet automatiquement. De plus, il n'est pas nécessaire de télécharger les 18~Go d'images, puisque seules les photos utiles sont récupérées grâce à leur adresse.
 
-Les annotations sont sous licence CC~BY~4.0, et chaque image garde la licence Flickr choisie par son auteur. Un usage scolaire est possible à condition de citer COCO et de ne pas redistribuer les images. CIFAR reste notre solution de secours, avec l'inconvénient d'une résolution très faible.
+Les annotations sont publiées sous licence CC~BY~4.0, et chaque image conserve la licence Flickr choisie par son auteur. Un usage scolaire est donc possible, à condition de citer COCO et de ne pas redistribuer les images. CIFAR reste notre solution de secours, malgré sa résolution très faible.
 
 \section{Présentation des classes}
 
-\begin{center}
-\small
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{2.6cm}Y}
-  \toprule
-  \textbf{Classe} & \textbf{Nom dans COCO} & \textbf{Pourquoi elle compte pour un véhicule} \\
-  \midrule
-  Personne & \texttt{person} & Usager le plus vulnérable : une erreur sur cette classe est la plus grave \\
-  Vélo & \texttt{bicycle} & Usager lent et fragile, souvent proche d'une personne. COCO annote le vélo, pas le cycliste \\
-  Voiture & \texttt{car} & Usager le plus fréquent, souvent à l'arrêt \\
-  Moto & \texttt{motorcycle} & Petit véhicule rapide, proche visuellement du vélo \\
-  Bus & \texttt{bus} & Grand véhicule qui masque la visibilité \\
-  Camion & \texttt{truck} & Grand véhicule ; COCO y range aussi des pick-ups \\
-  \bottomrule
-\end{tabularx}
-\end{center}
+Les six classes retenues correspondent aux usagers de la route que le véhicule doit savoir reconnaître :
 
-L'ordre des classes (personne, vélo, voiture, moto, bus, camion) est fixé une fois pour toutes. Il correspond aux sorties du modèle et à ce qu'attend le simulateur.
+\begin{itemize}
+  \item \textbf{Personne (\texttt{person})}\\
+  Il s'agit de l'usager le plus vulnérable. Une erreur sur cette classe est donc la plus grave pour un véhicule.
+  \item \textbf{Vélo (\texttt{bicycle})}\\
+  Usager lent et fragile, souvent accompagné d'une personne. Il faut noter que COCO annote le vélo et non le cycliste.
+  \item \textbf{Voiture (\texttt{car})}\\
+  Usager le plus fréquent, souvent à l'arrêt sur la chaussée.
+  \item \textbf{Moto (\texttt{motorcycle})}\\
+  Véhicule léger et rapide, visuellement proche du vélo.
+  \item \textbf{Bus (\texttt{bus})}\\
+  Grand véhicule qui masque une partie de la visibilité.
+  \item \textbf{Camion (\texttt{truck})}\\
+  Grand véhicule. COCO range également dans cette classe des pick-ups et des camionnettes.
+\end{itemize}
+
+L'ordre des classes (personne, vélo, voiture, moto, bus, camion) est fixé une fois pour toutes, car il correspond aux sorties du modèle et à ce qu'attend le simulateur.
 
 \begin{figure}[H]
   \centering
@@ -51,18 +60,20 @@ L'ordre des classes (personne, vélo, voiture, moto, bus, camion) est fixé une 
   \begin{subfigure}[t]{0.155\textwidth}\centering\includegraphics[width=\textwidth,height=2.6cm,keepaspectratio]{obj_moto.jpg}\caption*{Moto}\end{subfigure}\hfill
   \begin{subfigure}[t]{0.155\textwidth}\centering\includegraphics[width=\textwidth,height=2.6cm,keepaspectratio]{obj_bus.jpg}\caption*{Bus}\end{subfigure}\hfill
   \begin{subfigure}[t]{0.155\textwidth}\centering\includegraphics[width=\textwidth,height=2.6cm,keepaspectratio]{obj_camion.jpg}\caption*{Camion}\end{subfigure}
-  \caption{Les six classes, illustrées par des modèles 3D (sources externes, annexe~\ref{annexe:sources}). Le modèle n'apprend pas sur ces images, mais sur des photos réelles de COCO (figure~\ref{fig:recadrages}).}
+  \caption{Illustration des six classes par des modèles 3D (le modèle apprend sur des photos réelles de COCO)}
 \end{figure}
 
 \section{Analyse quantitative des données}
 
-L'ensemble \texttt{train2017} compte 118~287 images, dont 70~082 contiennent au moins un de nos objets. Leur résolution médiane est de 640~×~480~px.
+L'ensemble \texttt{train2017} de COCO compte \textbf{118~287 images}, dont \textbf{70~082} contiennent au moins un objet de nos classes. La résolution médiane de ces images est de 640~×~480~px.
 
-\begin{center}
+\begin{table}[H]
+\centering
 \small
+\caption{Nombre d'objets disponibles par classe dans COCO \texttt{train2017}}
 \begin{tabular}{lrr}
   \toprule
-  \textbf{Classe} & \textbf{Objets annotés} & \textbf{Hors foules, plus petit côté d'au moins 32~px} \\
+  \entete \textbf{Classe} & \textbf{Objets annotés} & \textbf{Hors foules, plus petit côté d'au moins 32~px} \\
   \midrule
   Personne & 262~465 & 150~185 \\
   Voiture & 43~867 & 16~799 \\
@@ -72,57 +83,67 @@ L'ensemble \texttt{train2017} compte 118~287 images, dont 70~082 contiennent au 
   Bus & 6~069 & 5~194 \\
   \bottomrule
 \end{tabular}
-\end{center}
+\end{table}
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.68\textwidth]{01_repartition_classes.png}
-  \caption{Répartition des objets par classe dans COCO \texttt{train2017}, avant filtrage.}
+  \includegraphics[width=0.66\textwidth]{01_repartition_classes.png}
+  \caption{Répartition des objets par classe avant filtrage}
 \end{figure}
 
-Le déséquilibre est fort : on compte 43,2 personnes pour un bus. Sans précaution, un modèle pourrait viser une bonne accuracy en répondant presque toujours « personne ». Nous plafonnons donc le nombre d'objets par classe, et nous jugeons les modèles au F1 macro.
+Ces chiffres mettent en évidence un \textbf{fort déséquilibre} entre les classes : on compte 43,2 personnes pour un bus. Sans précaution, un modèle pourrait obtenir une bonne accuracy en répondant presque toujours \og personne \fg{}. C'est pourquoi nous limitons le nombre d'objets par classe et évaluons les modèles avec le F1 macro.
 
 \section{Analyse qualitative des images}
 
-L'observation d'exemples tirés au hasard a montré :
+L'observation d'exemples tirés au hasard a permis de relever plusieurs difficultés :
 
 \begin{itemize}
-  \item des objets coupés par le bord de la photo ou cachés par un autre objet ;
-  \item des images floues ou très petites, surtout pour les voitures lointaines ;
-  \item plusieurs objets dans un même recadrage, comme un motard sur sa moto ;
-  \item une classe « camion » hétérogène, qui contient aussi des pick-ups et des camionnettes, proches d'une voiture ;
-  \item des photos prises par des particuliers, et non depuis un véhicule : un biais à garder en tête pour l'usage routier.
+  \item des objets \textbf{coupés} par le bord de la photo ou \textbf{cachés} par un autre objet ;
+  \item des images \textbf{floues} ou très petites, en particulier pour les voitures éloignées ;
+  \item \textbf{plusieurs objets} dans un même recadrage, comme un motard sur sa moto ;
+  \item une classe \og camion \fg{} \textbf{hétérogène}, qui contient aussi des pick-ups et des camionnettes, proches d'une voiture ;
+  \item des photos prises par des particuliers et non depuis un véhicule, ce qui constitue un biais à garder en tête pour un usage routier.
 \end{itemize}
 
 \section{Nettoyage des données}
 
+Afin de ne conserver que des exemples exploitables, plusieurs règles de nettoyage ont été appliquées :
+
 \begin{itemize}
-  \item \textbf{Foules écartées :} une boîte marquée \texttt{iscrowd} entoure un groupe et non un seul usager.
-  \item \textbf{Petits objets écartés :} sous 32~px de côté, l'objet devient trop flou une fois agrandi. À ce seuil, la classe la plus rare garde 4~505 objets ; à 64~px, il n'en resterait que 2~693.
-  \item \textbf{Plafond de 2~500 objets par classe :} les classes sont équilibrées, et l'entraînement reste faisable sans GPU.
-  \item \textbf{Téléchargements contrôlés :} une photo inaccessible est notée, sans arrêter la préparation. Sur 15~000 objets prévus, 14~990 ont été récupérés : 8 téléchargements ont expiré.
+  \item \textbf{Exclusion des foules}\\
+  Une boîte marquée \texttt{iscrowd} entoure un groupe de personnes et non un seul usager.
+  \item \textbf{Exclusion des petits objets}\\
+  En dessous de 32~px de côté, l'objet devient trop flou une fois agrandi. À ce seuil, la classe la plus rare conserve 4~505 objets, contre seulement 2~693 avec un seuil de 64~px.
+  \item \textbf{Plafond de 2~500 objets par classe}\\
+  Ce plafond permet d'équilibrer les classes tout en gardant un entraînement réalisable sans GPU.
+  \item \textbf{Contrôle des téléchargements}\\
+  Une photo inaccessible est notée sans interrompre la préparation. Sur les 15~000 objets prévus, 14~990 ont été récupérés, 8 téléchargements ayant expiré.
 \end{itemize}
 
 \section{Redimensionnement et normalisation}
 
-Chaque objet est découpé dans un \textbf{carré} centré sur sa boîte, avec une marge de 10~\%, puis réduit à \textbf{64~×~64~px}. Le carré évite de déformer les silhouettes : une personne est haute et fine, un bus est large. Quand le carré dépasse de la photo, les pixels manquants sont complétés par reflet plutôt que par une bande noire, que le modèle pourrait apprendre à tort.
+Chaque objet est découpé dans un \textbf{carré} centré sur sa boîte, avec une marge de 10~\%, puis réduit à \textbf{64~×~64~px}. Le recadrage carré évite de déformer les silhouettes, une personne étant haute et fine alors qu'un bus est large. Lorsque le carré dépasse les bords de la photo, les pixels manquants sont complétés par \textbf{reflet} plutôt que par une bande noire, que le modèle pourrait apprendre à tort.
 
-Chaque canal de couleur est ensuite normalisé avec la moyenne et l'écart-type du jeu d'entraînement. Les valeurs mesurées sont [0,4057 ; 0,3894 ; 0,3748] pour la moyenne et [0,2609 ; 0,2554 ; 0,2571] pour l'écart-type. Le simulateur applique exactement ces valeurs.
+Chaque canal de couleur est ensuite \textbf{normalisé} à l'aide de la moyenne et de l'écart-type calculés sur le jeu d'entraînement, soit [0,4057 ; 0,3894 ; 0,3748] pour la moyenne et [0,2609 ; 0,2554 ; 0,2571] pour l'écart-type. Le simulateur applique exactement les mêmes valeurs.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.6\textwidth]{02_recadrages.jpg}
-  \caption{Recadrages 64~×~64 du jeu d'entraînement, une ligne par classe (photos COCO).}
+  \includegraphics[width=0.58\textwidth]{02_recadrages.jpg}
+  \caption{Recadrages de 64~×~64~px du jeu d'entraînement, une ligne par classe}
   \label{fig:recadrages}
 \end{figure}
 
 \section{Séparation entraînement, validation et test}
 
-\begin{center}
+Les données ont été réparties en trois jeux : \textbf{70~\%} pour l'entraînement, \textbf{15~\%} pour la validation et \textbf{15~\%} pour le test.
+
+\begin{table}[H]
+\centering
 \small
+\caption{Répartition des images par classe et par jeu}
 \begin{tabular}{lrrr}
   \toprule
-  \textbf{Classe} & \textbf{Entraînement (70~\%)} & \textbf{Validation (15~\%)} & \textbf{Test (15~\%)} \\
+  \entete \textbf{Classe} & \textbf{Entraînement} & \textbf{Validation} & \textbf{Test} \\
   \midrule
   Personne & 1~750 & 375 & 375 \\
   Vélo & 1~748 & 373 & 375 \\
@@ -132,6 +153,10 @@ Chaque canal de couleur est ensuite normalisé avec la moyenne et l'écart-type 
   Camion & 1~749 & 375 & 375 \\
   \bottomrule
 \end{tabular}
-\end{center}
+\end{table}
 
-Le découpage est \textbf{stratifié}, c'est-à-dire qu'il garde les mêmes proportions de classes dans chaque jeu. Il se fait aussi \textbf{par photo} : deux objets d'une même photo partagent le même éclairage et le même décor, et les répartir entre le train et le test gonflerait le score. Un contrôle vérifie qu'aucune des 10~672 photos n'apparaît dans deux jeux. Le découpage est enregistré dans un fichier commun, pour que toute l'équipe utilise exactement les mêmes jeux.
+Le découpage est \textbf{stratifié}, afin de conserver les mêmes proportions de classes dans chaque jeu. Il est également réalisé \textbf{par photo d'origine}, car deux objets d'une même photo partagent le même éclairage et le même décor. Les répartir entre l'entraînement et le test fausserait donc le score. Un contrôle automatique vérifie qu'aucune des 10~672 photos n'apparaît dans deux jeux, et le découpage est enregistré dans un fichier commun afin que toute l'équipe utilise exactement les mêmes données.
+
+\section{Conclusion}
+
+Ce chapitre a permis de justifier le choix de \textbf{COCO 2017} et de décrire précisément les données retenues. L'analyse a mis en évidence un fort déséquilibre entre les classes ainsi que plusieurs difficultés liées à la qualité des images. Les étapes de nettoyage, de recadrage, de normalisation et de découpage par photo garantissent un jeu de données équilibré et une évaluation fiable. Ces données préparées serviront de base au modèle de classification, dont l'intégration dans l'architecture globale est détaillée dans le chapitre suivant.
