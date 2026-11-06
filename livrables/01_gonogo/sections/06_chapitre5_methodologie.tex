@@ -1,109 +1,131 @@
 \chapter{Méthodologie expérimentale et évaluation}
 \label{chap:methodologie}
 
+\section{Introduction}
+
+Une fois les données préparées et l'architecture définie, il est nécessaire de fixer une \textbf{méthode d'expérimentation rigoureuse} pour entraîner, comparer et sélectionner les modèles. Ce chapitre présente l'extraction des caractéristiques visuelles, les algorithmes de classification étudiés, le protocole expérimental et les métriques d'évaluation. Il décrit également la méthode de comparaison, les critères de sélection du modèle final ainsi que le protocole de validation dans le simulateur.
+
 \section{Extraction des caractéristiques}
 
-SVM, Random Forest et k-NN ne lisent pas directement une image : il faut d'abord la résumer en une liste de nombres, le \emph{descripteur}. Nous utilisons \textbf{HOG} (\emph{Histogram of Oriented Gradients}), qui décrit l'orientation des contours :
+Les algorithmes SVM, Random Forest et k-NN ne peuvent pas exploiter directement une image. Il faut d'abord la résumer en une liste de nombres, appelée \textbf{descripteur}. Nous utilisons le descripteur \textbf{HOG} (\textit{Histogram of Oriented Gradients}), qui décrit l'orientation des contours présents dans l'image. Son calcul se déroule en trois étapes :
 
 \begin{enumerate}
-  \item l'image 64~×~64 est convertie en niveaux de gris ;
+  \item l'image de 64~×~64~px est convertie en niveaux de gris ;
   \item elle est découpée en cellules de 8~×~8~px, et chaque cellule compte ses contours selon 9 orientations ;
-  \item les cellules sont regroupées en blocs de 2~×~2, normalisés pour compenser les différences d'éclairage.
+  \item les cellules sont regroupées en blocs de 2~×~2, normalisés afin de compenser les différences d'éclairage.
 \end{enumerate}
 
-Un bloc de 16~px, décalé de 8~px à chaque fois, prend 7 positions par côté, ce qui donne $7 \times 7 = 49$ blocs de $4 \times 9$ valeurs : $49 \times 4 \times 9 = 1\,764$ nombres par image. Nous testerons aussi des cellules de 4~px, plus fines mais beaucoup plus nombreuses. HOG ignore la couleur : c'est une limite connue, qui pèsera surtout sur des classes de formes proches, comme le bus et le camion.
+Un bloc de 16~px, décalé de 8~px à chaque fois, occupe 7 positions par côté, ce qui donne $7 \times 7 = 49$ blocs de $4 \times 9$ valeurs, soit $49 \times 4 \times 9 = 1\,764$ nombres par image. Nous testerons également des cellules de 4~px, plus fines mais beaucoup plus nombreuses. Il faut noter que HOG ne tient pas compte de la couleur, ce qui pourrait pénaliser les classes de formes proches, comme le bus et le camion.
 
 \section{Présentation des algorithmes SVM, Random Forest et k-NN}
 
-\begin{center}
-\small
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.3cm}YY>{\raggedright\arraybackslash}p{3cm}}
-  \toprule
-  \textbf{Algorithme} & \textbf{Principe} & \textbf{Points forts et limites} & \textbf{Réglages testés} \\
-  \midrule
-  SVM & Cherche la frontière qui sépare les classes avec la plus grande marge. Avec un noyau RBF, cette frontière peut être courbe & Efficace en grande dimension ; lent à entraîner quand les exemples sont nombreux & Linéaire ou RBF ; paramètre C \\
-  Random Forest & Fait voter des centaines d'arbres de décision, chacun entraîné sur un tirage différent des données & Rapide et robuste ; chaque question d'un arbre ne regarde qu'une valeur à la fois & Nombre d'arbres, profondeur \\
-  k-NN & Donne la classe majoritaire parmi les $k$ images d'entraînement les plus proches & Simple, sans vrai entraînement ; les distances perdent leur sens en grande dimension & $k$ ; réduction par PCA (50 à 200 dimensions) \\
-  \bottomrule
-\end{tabularx}
-\end{center}
+Trois algorithmes de classification, prévus par le sujet, sont comparés dans ce projet :
 
-Le SVM et le k-NN sont précédés d'une mise à l'échelle des valeurs, car ils y sont sensibles. Le Random Forest n'en a pas besoin.
+\begin{itemize}
+  \item \textbf{SVM (Support Vector Machine)}\\
+  Le SVM recherche la frontière qui sépare les classes avec la plus grande marge possible. Avec un noyau RBF, cette frontière peut être courbe. Il est efficace en grande dimension, mais devient lent à entraîner lorsque les exemples sont nombreux. Nous ferons varier le type de noyau (linéaire ou RBF) ainsi que le paramètre C.
+  \item \textbf{Random Forest}\\
+  Le Random Forest fait voter plusieurs centaines d'arbres de décision, chacun entraîné sur un tirage différent des données. Il est rapide et robuste, mais chaque question d'un arbre ne porte que sur une seule valeur à la fois. Nous ferons varier le nombre d'arbres et leur profondeur.
+  \item \textbf{k-NN (k plus proches voisins)}\\
+  Le k-NN attribue à une image la classe majoritaire parmi les $k$ images d'entraînement les plus proches. Il est simple et ne nécessite pas de véritable entraînement, mais les distances perdent leur sens en grande dimension. Nous ferons donc varier $k$ ainsi que le nombre de dimensions conservées après réduction par PCA (de 50 à 200).
+\end{itemize}
 
-\textbf{Extensions, sous réserve de l'accord de l'encadrant.} En plus des trois algorithmes du sujet, nous proposons XGBoost, une autre famille d'arbres construits l'un après l'autre, et un petit réseau convolutif (CNN) entraîné de zéro. Ces deux extensions sont comparées de la même façon, sans remplacer les trois modèles demandés.
+Le SVM et le k-NN sont précédés d'une mise à l'échelle des valeurs, car ils y sont sensibles, ce qui n'est pas nécessaire pour le Random Forest.
+
+En complément des trois algorithmes du sujet, et sous réserve de l'accord de notre encadrante, nous proposons deux \textbf{extensions} : \textbf{XGBoost}, une autre famille d'arbres construits successivement, et un petit \textbf{réseau convolutif (CNN)} entraîné de zéro. Ces extensions seront comparées de la même manière, sans remplacer les trois modèles demandés.
 
 \section{Protocole expérimental}
 
+Le protocole expérimental repose sur cinq principes :
+
 \begin{enumerate}
-  \item \textbf{Même point de départ :} tous les modèles utilisent les mêmes recadrages, le même découpage et les mêmes descripteurs.
-  \item \textbf{Réglages sur la validation :} chaque combinaison de réglages est entraînée sur le train, puis mesurée sur la validation.
-  \item \textbf{Une seule chose change à la fois :} chaque essai est noté avec ses réglages, son score et son temps d'entraînement.
-  \item \textbf{Test ouvert une seule fois :} les modèles retenus sont mesurés sur le test à la fin. Plus aucun réglage n'est permis après.
-  \item \textbf{Reproductibilité :} les graines aléatoires sont fixées, et les notebooks s'exécutent de bout en bout.
+  \item \textbf{Un même point de départ} : tous les modèles utilisent les mêmes recadrages, le même découpage et les mêmes descripteurs.
+  \item \textbf{Des réglages sur la validation} : chaque combinaison de paramètres est entraînée sur le jeu d'entraînement, puis mesurée sur le jeu de validation.
+  \item \textbf{Un seul changement à la fois} : chaque essai est consigné avec ses réglages, son score et son temps d'entraînement.
+  \item \textbf{Un test ouvert une seule fois} : les modèles retenus sont mesurés sur le jeu de test à la toute fin, et plus aucun réglage n'est permis ensuite.
+  \item \textbf{La reproductibilité} : les graines aléatoires sont fixées, et les notebooks s'exécutent de bout en bout.
 \end{enumerate}
 
-Le test reste fermé jusqu'à la fin, car un modèle réglé en regardant le test aurait un score trop optimiste. C'est comme un élève qui connaîtrait les questions de l'examen.
+Le jeu de test reste fermé jusqu'à la fin, car un modèle réglé en observant ce jeu obtiendrait un score trop optimiste, à la manière d'un élève qui connaîtrait à l'avance les questions de l'examen.
 
 \section{Métriques d'évaluation}
 \label{sec:metriques}
 
-\begin{center}
+Plusieurs métriques sont utilisées pour évaluer les modèles :
+
+\begin{table}[H]
+\centering
 \small
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.2cm}Y}
+\caption{Métriques d'évaluation retenues}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm}Y}
   \toprule
-  \textbf{Métrique} & \textbf{Ce qu'elle mesure} \\
+  \entete \textbf{Métrique} & \textbf{Ce qu'elle mesure} \\
   \midrule
-  Accuracy & Part de bonnes réponses sur toutes les images \\
-  Précision (par classe) & Quand le modèle répond « camion », part de vrais camions \\
+  Accuracy & Part de bonnes réponses sur l'ensemble des images \\
+  Précision (par classe) & Lorsque le modèle répond \og camion \fg{}, part de vrais camions \\
   Rappel (par classe) & Parmi les vrais camions, part que le modèle retrouve \\
   F1 (par classe) & Moyenne harmonique de la précision et du rappel : $F1 = \frac{2 \times \text{précision} \times \text{rappel}}{\text{précision} + \text{rappel}}$ \\
-  F1 macro & Moyenne des F1 des 6 classes, chacune avec le même poids : \textbf{métrique principale} \\
-  Rappel « personne » & Part des personnes reconnues : l'erreur la plus grave pour un véhicule \\
-  Matrice de confusion & Croise vraies classes et classes prédites, pour voir quelles classes se confondent \\
-  Temps d'inférence & Temps de calcul d'une prédiction sur CPU \\
+  F1 macro & Moyenne des F1 des six classes, chacune ayant le même poids. Il s'agit de notre \textbf{métrique principale} \\
+  Rappel \og personne \fg{} & Part des personnes reconnues, l'erreur la plus grave pour un véhicule \\
+  Matrice de confusion & Croisement des vraies classes et des classes prédites, pour identifier les confusions \\
+  Temps d'inférence & Temps de calcul d'une prédiction sur un processeur ordinaire \\
   \bottomrule
 \end{tabularx}
-\end{center}
+\end{table}
 
 \section{Méthode de comparaison des modèles}
 
+La comparaison des modèles s'appuie sur les éléments suivants :
+
 \begin{itemize}
-  \item \textbf{Mêmes données :} les modèles sont comparés sur les mêmes images, dans le même ordre.
-  \item \textbf{Scores planchers :} un modèle qui répond toujours la même classe, ou qui tire au hasard selon les fréquences, donne la valeur à dépasser.
-  \item \textbf{Analyse des erreurs :} au-delà du score global, nous comparons les matrices de confusion et regardons des images mal classées tirées au hasard.
-  \item \textbf{Incertitude :} avec environ 2~250 images de test, une accuracy n'est connue qu'à environ $\pm$~2 points près. Un écart plus petit ne permet pas de départager deux modèles.
+  \item \textbf{Des données identiques}\\
+  Les modèles sont comparés sur les mêmes images, dans le même ordre.
+  \item \textbf{Des scores planchers}\\
+  Un modèle qui répond toujours la même classe, ou qui tire au hasard selon les fréquences, fournit la valeur minimale à dépasser.
+  \item \textbf{L'analyse des erreurs}\\
+  Au-delà du score global, nous comparons les matrices de confusion et observons des images mal classées tirées au hasard.
+  \item \textbf{La prise en compte de l'incertitude}\\
+  Avec environ 2~250 images de test, une accuracy n'est connue qu'à environ $\pm$~2 points près. Un écart plus faible ne permet donc pas de départager deux modèles.
 \end{itemize}
 
 \section{Critères de sélection du modèle final}
 
+Le modèle final sera choisi selon les critères suivants, par ordre de priorité :
+
 \begin{enumerate}
   \item le meilleur \textbf{F1 macro sur la validation} ;
-  \item à score proche, le meilleur \textbf{rappel « personne »} ;
-  \item puis un \textbf{temps d'inférence} compatible avec le simulateur (quelques millisecondes) ;
+  \item à score proche, le meilleur \textbf{rappel \og personne \fg{}} ;
+  \item un \textbf{temps d'inférence} compatible avec le simulateur, de l'ordre de quelques millisecondes ;
   \item enfin, le modèle le plus simple et le plus stable d'un essai à l'autre.
 \end{enumerate}
 
-Le modèle retenu est exporté avec ses métadonnées. Son seuil « Inconnu » est choisi sur la validation : c'est le plus haut seuil qui laisse au moins 90~\% des images classées.
+Le modèle retenu sera exporté avec ses métadonnées. Son seuil \og Inconnu \fg{} sera fixé sur la validation, en retenant le seuil le plus élevé qui laisse au moins 90~\% des images classées.
 
 \section{Protocole de validation dans le simulateur}
 
-Chaque classifieur parcourt exactement les mêmes épisodes : même carte, même itinéraire, mêmes obstacles et mêmes images. Le protocole prévoit 50 épisodes, avec une graine fixée.
+Pour la validation dans le simulateur, chaque classifieur parcourt exactement les mêmes épisodes : même carte, même itinéraire, mêmes obstacles et mêmes images. Le protocole prévoit \textbf{50 épisodes}, avec une graine fixée.
 
-\begin{center}
+\begin{table}[H]
+\centering
 \small
+\caption{Mesures relevées dans le simulateur}
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.2cm}Y}
   \toprule
-  \textbf{Mesure} & \textbf{Définition} \\
+  \entete \textbf{Mesure} & \textbf{Définition} \\
   \midrule
-  Épisodes arrivés & Le véhicule a atteint la destination \\
+  Épisodes arrivés & Le véhicule a atteint sa destination \\
   Collisions & Le véhicule a atteint un obstacle encore présent \\
-  Obstacles bien classés & Classe prédite égale à la vraie classe \\
-  Fautes graves & Personne classée autrement que « personne », « Inconnu » compris \\
+  Obstacles bien classés & Classe prédite identique à la vraie classe \\
+  Fautes graves & Personne classée autrement que \og personne \fg{}, \og Inconnu \fg{} compris \\
   Décisions inadaptées & Action différente de celle que demandait la vraie classe \\
-  Détour et recalculs & Distance parcourue rapportée au trajet prévu, nombre de nouveaux calculs \\
-  Temps par décision & Temps moyen d'une prédiction, mesuré sur CPU \\
+  Détour et recalculs & Distance parcourue rapportée au trajet prévu, et nombre de nouveaux calculs \\
+  Temps par décision & Temps moyen d'une prédiction, mesuré sur processeur \\
   \bottomrule
 \end{tabularx}
-\end{center}
+\end{table}
 
-Le mode « simulation » n'est pas un modèle : son taux d'erreur est réglé à la main. Il vérifie seulement que la logique du simulateur fonctionne, et ses chiffres ne se comparent pas à ceux d'un vrai classifieur.
+Il faut préciser que le mode \og simulation \fg{} n'est pas un modèle, puisque son taux d'erreur est réglé manuellement. Il permet uniquement de vérifier la logique du simulateur, et ses résultats ne peuvent pas être comparés à ceux d'un véritable classifieur.
+
+\section{Conclusion}
+
+Ce chapitre a permis de définir une \textbf{méthodologie expérimentale claire et reproductible}. L'extraction des descripteurs HOG, la comparaison des trois classifieurs du sujet sur des données identiques et l'utilisation du F1 macro comme métrique principale garantissent une évaluation équitable. Le protocole retenu, qui réserve le jeu de test à l'évaluation finale, assure la fiabilité des résultats. Le dernier chapitre s'appuie sur ces éléments pour étudier la faisabilité du projet et préparer la décision de Go/No-Go.
