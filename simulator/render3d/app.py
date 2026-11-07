@@ -8,7 +8,7 @@
     python -m simulator.render3d.app --scenario contournement         # scénario Go/NoGo ou trajet quotidien
 
 Commandes : Espace pause · → pas à pas · ↑/↓ vitesse · V vue (poursuite, conducteur, dessus) ·
-R recommencer · N épisode suivant · Échap quitter.
+S scénario suivant · 1 à 4 scénarios du Go/NoGo · 0 tirage au hasard · R recommencer · N épisode suivant · Échap quitter.
 
 Mise en page : la vue 3D occupe la partie gauche de la fenêtre, le panneau d'information la colonne de droite
 (rien ne recouvre la scène). En vue conducteur, un tableau de bord occupe le bas de la zone 3D.
@@ -163,6 +163,7 @@ class Simulator3D:
         self.base.camLens.setAspectRatio(aspect)
         x, top, side = self.panel.layout(width, height)
         self.minimap.set_region(x / width, (x + side) / width, 1 - (top + side) / height, 1 - top / height)
+        self.banner.layout(layout.scene_px[0])
         dx, dy, dw, dh = layout.dashboard_px
         self.dashboard.layout(dx, dy, dw, dh)
         self.dashboard.show(driver)
@@ -303,6 +304,7 @@ class Simulator3D:
 
         self.panel.update(episode, self.view, self.time_factor, self.paused, street, traffic,
                           scenario_status(self.scenario, episode))
+        self.banner.update(episode)
         if self.view == "conducteur":
             from simulator.render3d.hud import latin
 
