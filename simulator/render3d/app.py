@@ -94,12 +94,8 @@ class Simulator3D:
 
         self.classifier, self.images = load_perception(args.classifier, self.config)[0], episode_images(self.config)
 
-        self.scenario = SCENARIOS[args.scenario] if args.scenario else None
-        # Ambiance du scénario (heure de pointe, sortie d'école…), sauf si la ligne de commande la fixe.
-        if args.traffic is None:
-            args.traffic = self.scenario.traffic if self.scenario else 80
-        if args.pedestrians is None:
-            args.pedestrians = self.scenario.pedestrians if self.scenario else 40
+        self.cli_ambiance = (args.traffic, args.pedestrians)     # None = selon le scénario
+        self.set_scenario(args.scenario, start=False)
         self.catalog = load_catalog()
         self.frame = WorldFrame.from_graph(self.graph)
         self.font = accented_font(base.loader)
@@ -124,6 +120,9 @@ class Simulator3D:
         self.ego = EgoCar(self.dynamic, self.catalog, base.loader, self.frame)
         self.route_line = RouteLine(self.dynamic, self.graph, self.frame)
         self.panel = SidePanel(base, self.font)
+        from simulator.render3d.hud import EventBanner
+
+        self.banner = EventBanner(base, self.font)
         self.dashboard = Dashboard(base, self.font, self.config.sensor_range_m)
         self.minimap = MiniMap(base, self.ego.node)
         self.view = args.view
@@ -139,8 +138,11 @@ class Simulator3D:
             for key, action in {"space": self.toggle_pause, "arrow_right": self.single_step,
                                 "arrow_up": lambda: self.set_speed(2), "arrow_down": lambda: self.set_speed(0.5),
                                 "v": self.next_view, "r": lambda: self.new_episode(),
-                                "n": lambda: self.new_episode(self.episode_number + 1), "escape": sys.exit}.items():
+                                "n": lambda: self.new_episode(self.episode_number + 1), "escape": sys.exit,
+                                "s": self.next_scenario, "0": lambda: self.set_scenario(None)}.items():
                 base.accept(key, action)
+            for number, key in enumerate(("route_libre", "pieton", "route_bloquee", "contournement"), start=1):
+                base.accept(str(number), self.set_scenario, [key])
             base.taskMgr.add(self.tick, "sim_tick")
 
     # ------------------------------------------------------------------ mise en page
@@ -166,6 +168,25 @@ class Simulator3D:
         self.dashboard.show(driver)
 
     # ------------------------------------------------------------------ épisodes
+    def set_scenario(self, key: str | None, start: bool = True) -> None:
+        """Change de scénario (touches S, 1 à 4, 0) ; l'ambiance suit le scénario sauf si la ligne de commande la fixe."""
+        from simulator.scenarios import SCENARIOS
+
+        self.scenario = SCENARIOS[key] if key else None
+        traffic, pedestrians = self.cli_ambiance
+        self.args.traffic = traffic if traffic is not None else (self.scenario.traffic if self.scenario else 80)
+        self.args.pedestrians = pedestrians if pedestrians is not None else (
+            self.scenario.pedestrians if self.scenario else 40)
+        if start:
+            self.new_episode(0)
+
+    def next_scenario(self) -> None:
+        """Tirage au hasard, puis chaque scénario dans l'ordre (Go/NoGo, puis trajets quotidiens)."""
+        from simulator.scenarios import SCENARIOS
+
+        keys = [None, *SCENARIOS]
+        self.set_scenario(keys[(keys.index(self.scenario.key if self.scenario else None) + 1) % len(keys)])
+
     def new_episode(self, number: int | None = None) -> None:
         from simulator.render3d.actors import ObstacleView
 

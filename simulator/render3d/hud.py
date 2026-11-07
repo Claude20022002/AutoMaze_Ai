@@ -142,9 +142,9 @@ class SidePanel:
         """Place le panneau à droite. Renvoie la zone de la minicarte : (x, y du haut, côté), en pixels."""
         self.root.setPos(window_w - PANEL_W, 0, 0)
         self.background["frameSize"] = (0, PANEL_W, -window_h, 0)
-        self.help.setPos(MARGIN, -(window_h - 84))
+        self.help.setPos(MARGIN, -(window_h - 98))          # aide sur trois lignes au plus
         self.credits.setPos(MARGIN, -(window_h - 50))
-        side = max(80, min(PANEL_W - 2 * MARGIN, window_h - 104 - self.minimap_top))
+        side = max(80, min(PANEL_W - 2 * MARGIN, window_h - 118 - self.minimap_top))
         return window_w - PANEL_W + MARGIN, self.minimap_top, side
 
     def update(self, episode: Episode, view: str, time_factor: float, paused: bool, street: str,
