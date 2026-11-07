@@ -124,6 +124,23 @@ def road_width(data: dict) -> float:
     return HIGHWAY_WIDTH_M.get(highway, DEFAULT_WIDTH_M)
 
 
+def is_two_way(data: dict) -> bool:
+    return str(_first(data.get("oneway"))).lower() not in ("true", "1", "yes")
+
+
+def lane_offset(data: dict) -> float:
+    """Distance (m) entre l'axe de la rue et le centre de la voie où l'on roule (à droite).
+
+    Double sens : centre de la voie de droite, au plus ``LANE_OFFSET_M`` (une rue de 4 m n'a que 1 m par sens).
+    Sens unique : au centre de la chaussée si elle n'a qu'une voie, sinon sur la voie de droite.
+    Les véhicules restent ainsi sur la chaussée, même dans les rues étroites.
+    """
+    width = road_width(data)
+    if is_two_way(data):
+        return min(LANE_OFFSET_M, width / 4)
+    return max(0.0, width / 2 - LANE_WIDTH_M / 2) if width >= 2 * LANE_WIDTH_M else 0.0
+
+
 def edge_line(graph: nx.MultiDiGraph, u: int, v: int, data: dict) -> LineString:
     geometry = data.get("geometry")
     if geometry is not None:
