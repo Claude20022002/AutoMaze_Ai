@@ -20,7 +20,8 @@ from simulator.contracts import CLASSES_FR, UNKNOWN
 from simulator.engine import Episode
 from simulator.render3d.catalog import Catalog, load_model
 from simulator.render3d.masks import no_shadow, only_on_main_view
-from simulator.render3d.world_mesh import ROAD_Z, WorldFrame, heading_deg, is_two_way, lane_offset, road_width
+from simulator.render3d.world_mesh import (DRAW_LAG_M, ROAD_Z, WorldFrame, heading_deg, is_two_way, lane_offset,
+                                           road_width)
 from simulator.world.car import Car, point_on_edge
 from simulator.world.obstacles import ObstacleState
 
@@ -66,34 +67,89 @@ def driving_lateral(graph: nx.MultiDiGraph, edge, backwards: bool) -> float:
 
 
 def ego_body(graph: nx.MultiDiGraph, car: Car, distance_m: float, length_m: float,
-             smooth_m: float = 4.0) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Centre (x, y) et cap unitaire de la carrosserie quand l'avant a parcouru ``distance_m`` mètres.
+             smooth_m: float = DRAW_LAG_M) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Centre (x, y) et cap unitaire de la carrosserie quand le moteur a parcouru ``distance_m`` mètres.
 
     L'avant et l'arrière sont posés sur la trace réelle de la voiture (``Car.trail``), chacun décalé sur sa voie :
     la carrosserie suit les virages sans couper les trottoirs et tourne pendant un demi-tour au lieu de sauter.
-    Le décalage de voie est moyenné sur ``smooth_m`` mètres pour changer de voie en douceur d'une rue à l'autre.
+    Le cap et le décalage de voie sont moyennés sur ± ``smooth_m`` mètres. L'avant est donc dessiné ``DRAW_LAG_M``
+    derrière le moteur : ces moyennes ne lisent que du chemin déjà connu, sinon un demi-tour décidé au pas suivant
+    ferait sauter la voiture de côté.
     """
+    distance_m -= DRAW_LAG_M
+    lanes: dict = {}
+
+    def lateral_at(index: int) -> float:
+        """Décalage du segment de trace qui finit au point ``index`` (tronçon et sens de ce point)."""
+        point = car.trail[index]
+        key = (point[3], point[4])
+        if key not in lanes:
+            lanes[key] = driving_lateral(graph, point[3], point[4])
+        return lanes[key]
+
+    def mean_lateral(s: float) -> float:
+        """Moyenne exacte du décalage sur [s - smooth_m, s + smooth_m] : il varie continûment, sans marche."""
+        trail = car.trail
+        lo, hi = s - smooth_m, s + smooth_m
+        total = weight = 0.0
+        for i in range(1, len(trail)):
+            a, b = max(trail[i - 1][0], lo), min(trail[i][0], hi)
+            if b > a:
+                total += lateral_at(i) * (b - a)
+                weight += b - a
+        if weight < 1e-6:                      # hors de la trace (tout début ou bout) : point le plus proche
+            return lateral_at(len(trail) - 1 if s > trail[-1][0] else min(1, len(trail) - 1))
+        return total / weight
+
+    if not car.trail:
+        car.trail_point(distance_m)            # premier point de la trace
+
+    # Cap de chaque segment de la trace, « déroulé » : un retournement (demi-tour, virage en épingle) compte
+    # pour +180° (on tourne par la gauche), jamais pour un saut de -180° à +180°.
+    trail = car.trail
+    hx0, hy0 = car.heading()
+    angles = [math.atan2(hy0, hx0)]
+    for i in range(1, len(trail)):
+        dx, dy = trail[i][1] - trail[i - 1][1], trail[i][2] - trail[i - 1][2]
+        if math.hypot(dx, dy) < 1e-6:
+            angles.append(angles[-1])
+            continue
+        delta = (math.atan2(dy, dx) - angles[-1] + math.pi) % (2 * math.pi) - math.pi
+        if delta < -0.9 * math.pi:
+            delta += 2 * math.pi
+        angles.append(angles[-1] + delta)
+
+    def mean_angle(s: float, window: float = DRAW_LAG_M) -> float:
+        """Cap moyen sur [s - window, s + window] : il tourne continûment, même pendant un demi-tour."""
+        total = weight = 0.0
+        for i in range(1, len(trail)):
+            a, b = max(trail[i - 1][0], s - window), min(trail[i][0], s + window)
+            if b > a:
+                total += angles[i] * (b - a)
+                weight += b - a
+        if weight < 1e-6:
+            return angles[-1] if s > trail[-1][0] else angles[min(1, len(angles) - 1)]
+        return total / weight
+
     def lane_side(s: float) -> tuple[float, float]:
         _, x, y, _, _ = car.trail_point(s)
-        _, ax, ay, _, _ = car.trail_point(s - 1.0)
-        _, bx, by, _, _ = car.trail_point(s + 1.0)
-        dx, dy = bx - ax, by - ay
-        norm = math.hypot(dx, dy)
-        if norm < 1e-6:
-            dx, dy = car.heading()
-            norm = 1.0
-        dx, dy = dx / norm, dy / norm
-        samples = [car.trail_point(s + k * smooth_m / 2) for k in (-2, -1, 0, 1, 2)]
-        lateral = sum(driving_lateral(graph, p[3], p[4]) for p in samples) / len(samples)
+        angle = mean_angle(s)
+        dx, dy = math.cos(angle), math.sin(angle)
+        lateral = mean_lateral(s)
         return x + dy * lateral, y - dx * lateral
 
     fx, fy = lane_side(distance_m)
-    rx, ry = lane_side(distance_m - length_m)
+    first = car.trail[0][0]
+    rx, ry = lane_side(max(distance_m - length_m, first))
+    missing = first - (distance_m - length_m)
+    if missing > 0:                            # début d'épisode : l'arrière est avant le début de la trace,
+        ax, ay = lane_side(first + 2.0)        # on le prolonge dans l'axe du départ
+        dx, dy = ax - rx, ay - ry
+        norm = math.hypot(dx, dy)
+        dx, dy = (dx / norm, dy / norm) if norm > 1e-6 else car.heading()
+        rx, ry = rx - dx * missing, ry - dy * missing
     dx, dy = fx - rx, fy - ry
-    norm = math.hypot(dx, dy)
-    if norm < 0.5 * length_m:                  # début d'épisode : pas encore de trace derrière l'avant
-        hx, hy = car.heading()
-        return (fx - hx * length_m / 2, fy - hy * length_m / 2), (hx, hy)
+    norm = math.hypot(dx, dy) or 1.0
     return ((fx + rx) / 2, (fy + ry) / 2), (dx / norm, dy / norm)
 
 

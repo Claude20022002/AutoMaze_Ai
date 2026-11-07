@@ -147,10 +147,14 @@ Touches : Espace pause · → pas à pas · ↑/↓ vitesse · V vue (poursuite,
 ## Synchronisation logique et rendu
 
 - `Simulator3D.tick` accumule le temps réel × `time_factor`. Chaque fois que `step_seconds` s'est écoulé, elle
-  appelle `episode.step()`, comme `main.py`. Le rendu interpole la voiture entre l'état précédent et l'état
-  courant (`Car.position_xy()`, `Car.heading()`). Au-delà de 60 m d'écart, il n'y a pas d'interpolation : c'est
-  le cas du demi-tour du moteur, qui **ramène la voiture au début du tronçon** (simplification de `engine.py`) et
-  la fait sauter à l'écran.
+  appelle `episode.step()`, comme `main.py`. La voiture garde la trace de son chemin (`Car.record_path`,
+  `Car.trail`) ; le rendu fait glisser la carrosserie le long de cette trace (`actors.ego_body`) : avant et arrière
+  sur le chemin, chacun sur sa voie (`world_mesh.lane_offset`, 1,8 m de l'axe au plus, centre d'un sens unique
+  étroit), cap et voie moyennés de façon continue. L'ego est dessiné `DRAW_LAG_M` (3 m) derrière le moteur pour
+  que ces moyennes ne lisent que du chemin connu. Le demi-tour du moteur est un vrai retour en sens inverse
+  (`Car.return_m`), plus une téléportation. Mesuré sur 10 scénarios × 2 épisodes à 60 images/s : 0 saut de plus
+  de 1,5 m, 0 image hors chaussée (avant : 12 sauts, 9 % hors chaussée). Ne jamais revenir à une interpolation
+  en ligne droite entre deux positions : elle coupe les virages et fait pivoter la voiture d'un coup.
 - Les obstacles (`ObstacleView`) sont créés à chaque épisode depuis `episode.obstacles`. Le modèle est choisi avec
   `catalog.pick` et la graine de l'obstacle. Le comportement affiché suit la **vraie** classe :
   - la personne traverse entre `detected_step` et `cleared_step` ;

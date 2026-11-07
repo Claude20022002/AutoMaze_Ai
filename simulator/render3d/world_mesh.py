@@ -41,6 +41,7 @@ SIDEWALK_M = 2.5
 INTERSECTION_CLEAR_M = 8.0       # pas de marquage à moins de 8 m d'un carrefour
 DASH_M, GAP_M = 3.0, 3.0         # ligne centrale en tirets
 LANE_OFFSET_M = 1.8              # on roule à droite : centre de la voie de droite (comme ui/driver_view.py)
+DRAW_LAG_M = 3.0                 # l'ego est dessiné 3 m derrière le moteur : ses lissages ne lisent que le chemin connu
 
 ROAD_Z, MARKING_Z, SIDEWALK_Z = 0.02, 0.04, 0.12
 
@@ -132,13 +133,14 @@ def lane_offset(data: dict) -> float:
     """Distance (m) entre l'axe de la rue et le centre de la voie où l'on roule (à droite).
 
     Double sens : centre de la voie de droite, au plus ``LANE_OFFSET_M`` (une rue de 4 m n'a que 1 m par sens).
-    Sens unique : au centre de la chaussée si elle n'a qu'une voie, sinon sur la voie de droite.
-    Les véhicules restent ainsi sur la chaussée, même dans les rues étroites.
+    Sens unique : au centre de la chaussée si elle n'a qu'une voie, sinon une voie à droite du centre (pas tout à
+    droite d'un large boulevard : la voiture changerait brutalement de voie à chaque rue).
+    Les véhicules restent ainsi sur la chaussée, même dans les rues étroites, et toujours à 1,8 m de l'axe au plus.
     """
     width = road_width(data)
     if is_two_way(data):
         return min(LANE_OFFSET_M, width / 4)
-    return max(0.0, width / 2 - LANE_WIDTH_M / 2) if width >= 2 * LANE_WIDTH_M else 0.0
+    return min(LANE_OFFSET_M, width / 2 - LANE_WIDTH_M / 2) if width >= 2 * LANE_WIDTH_M else 0.0
 
 
 def edge_line(graph: nx.MultiDiGraph, u: int, v: int, data: dict) -> LineString:

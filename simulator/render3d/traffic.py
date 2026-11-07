@@ -497,7 +497,10 @@ def ego_state(episode, ego_length: float) -> EgoState:
     Sa longueur est donc augmentée de la distance d'un pas, pour que le trafic ne rattrape jamais l'ego visible.
     """
     car = episode.car
-    length = ego_length + episode.config.car_speed_mps * episode.config.step_seconds
+    from simulator.render3d.world_mesh import DRAW_LAG_M
+
+    # + DRAW_LAG_M : l'ego est dessiné un peu derrière la position du moteur (actors.ego_body).
+    length = ego_length + episode.config.car_speed_mps * episode.config.step_seconds + DRAW_LAG_M
     upcoming, ahead = [], 0.0
     if car.returning:
         # Retour après un demi-tour : l'ego roule en sens inverse sur son tronçon (sens inverse de la rue s'il existe).

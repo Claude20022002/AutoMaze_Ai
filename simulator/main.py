@@ -265,7 +265,7 @@ CAR_BODY_M = 4.4    # longueur de la voiture : son cap suit le chemin entre l'av
 
 
 def draw_event_banner(surface, episode: Episode, area) -> None:
-    """Bandeau en haut de la grande vue : ce que la voiture vient de faire (obstacle classé, demi-tour, arrêt…)."""
+    """Bandeau en bas de la grande vue : ce que la voiture vient de faire (obstacle classé, demi-tour, arrêt…)."""
     import pygame
 
     from simulator.ui import theme
@@ -276,7 +276,7 @@ def draw_event_banner(surface, episode: Episode, area) -> None:
     font = theme.font(17, bold=True)
     width, height = font.size(event)
     box = pygame.Rect(0, 0, min(width + 32, area.w - 32), height + 14)
-    box.midtop = (area.centerx, area.y + 14)
+    box.midbottom = (area.centerx, area.bottom - 76)    # au-dessus du compteur ; le haut porte le nom de la rue
     pygame.draw.rect(surface, (24, 28, 36), box, border_radius=8)
     theme.draw_text(surface, event, (box.x + 16, box.y + 7), 17, theme.PANEL, bold=True, max_width=box.w - 32)
 
