@@ -6,7 +6,8 @@
     python -m simulator.main --scenario pieton                 # scénario (liste : python -m simulator.scenarios -h)
 
 Commandes : Espace pause · → pas à pas · ↑/↓ vitesse · V vue conducteur/carte · F11 plein écran ·
-R recommencer · N épisode suivant · Échap quitter. La fenêtre se redimensionne à la souris.
+S scénario suivant · 1 à 4 scénarios du Go/NoGo · 0 tirage · R recommencer · N épisode suivant ·
+Échap quitter. La fenêtre se redimensionne à la souris.
 """
 
 from __future__ import annotations
