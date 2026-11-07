@@ -33,6 +33,8 @@ def driving_state(episode: Episode) -> DrivingState:
     if status in (BLOCKED, TIMEOUT):
         return DrivingState(f"Épisode terminé : {status}", RED)
     detection = episode.last_detection
+    if getattr(episode, "at_stop", None):
+        return DrivingState(f"Arrêt prévu ({episode.dwell} s)", GREEN)   # le lieu est écrit à droite
     if episode.wait > 0:
         if detection is not None and detection.action == Action.STOP_WAIT:
             return DrivingState(f"Arrêt : piéton ({episode.wait} s)", RED)
@@ -69,11 +71,14 @@ def object_ahead(episode: Episode, look_ahead_m: float = LOOK_AHEAD_M) -> Object
 
 
 def remaining_m(episode: Episode) -> float:
+    """Distance restante : fin de l'étape en cours, puis longueur prévue des étapes suivantes (arrêts prévus)."""
     car = episode.car
+    legs = getattr(episode, "planned_legs", ())
+    later = sum(leg.length_m for leg in legs[episode.next_stop + (0 if car.arrived else 1):]) if legs else 0.0
     if car.arrived:
-        return 0.0
+        return later
     edges = car.route.edges[car.edge_index:]
-    return sum(car.edge_length(e) for e in edges) - car.progress_m
+    return sum(car.edge_length(e) for e in edges) - car.progress_m + later
 
 
 def object_text(ahead: ObjectAhead | None) -> str:

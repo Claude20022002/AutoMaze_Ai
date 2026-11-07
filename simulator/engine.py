@@ -16,7 +16,7 @@ from __future__ import annotations
 import argparse
 import csv
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -50,6 +50,15 @@ class Detection:
     action: Action
 
 
+@dataclass(frozen=True)
+class Stop:
+    """Arrêt prévu sur le trajet (déposer quelqu'un, faire une course) : la voiture y reste ``dwell_steps`` pas."""
+
+    node: int
+    dwell_steps: int
+    name: str = "Arrêt"
+
+
 @dataclass
 class EpisodeResult:
     episode: int
@@ -60,8 +69,19 @@ class EpisodeResult:
     planned_length_m: float            # longueur de l'itinéraire initial, sans obstacle
     replans: int
     collisions: int
-    waiting_steps: int
+    waiting_steps: int                 # attente due aux obstacles ou à l'absence de chemin (hors arrêts prévus)
     encounters: list[EncounterLog] = field(default_factory=list)
+    u_turns: int = 0                   # demi-tours (obstacle sur la rue où roule la voiture)
+    stops_reached: list[tuple[str, int]] = field(default_factory=list)  # (arrêt prévu, pas d'arrivée)
+
+
+def join_routes(legs: Sequence[Route]) -> Route:
+    """Met bout à bout les étapes d'un trajet (chaque étape part de l'arrivée de la précédente)."""
+    nodes: tuple[int, ...] = legs[0].nodes
+    for leg in legs[1:]:
+        nodes += leg.nodes[1:]
+    return Route(nodes=nodes, edges=tuple(e for leg in legs for e in leg.edges),
+                 cost=sum(leg.cost for leg in legs), length_m=sum(leg.length_m for leg in legs))
 
 
 class Episode:
@@ -74,21 +94,34 @@ class Episode:
         start: int | None = None,
         goal: int | None = None,
         image_for: ImageProvider = gray_placeholder,
+        obstacles: Sequence[Obstacle] | None = None,
+        stops: Sequence[Stop] = (),
     ) -> None:
+        """``obstacles`` impose les obstacles (scénarios) ; sinon ils sont tirés au hasard sur l'itinéraire.
+        ``stops`` : arrêts prévus, dans l'ordre, entre le départ et l'arrivée (trajets quotidiens)."""
         from simulator.world.road_map import landmark_node
 
         self.graph, self.classifier, self.config, self.episode = graph, classifier, config, episode
         self.image_for = image_for
         self.start = start if start is not None else landmark_node(graph, config.start)
         self.goal = goal if goal is not None else landmark_node(graph, config.goal)
+        self.stops: tuple[Stop, ...] = tuple(stops)
+        self.next_stop = 0                    # indice du prochain arrêt prévu
+        self.dwell = 0                        # pas restants à l'arrêt prévu en cours
+        self.leg_pending = False              # arrêt terminé : l'étape suivante reste à calculer
 
         # Même graine pour tous les classifieurs : ils affrontent exactement les mêmes obstacles.
         rng = random.Random(config.seed * 100_003 + episode)
-        self.planned: Route = dijkstra(graph, self.start, self.goal)
-        self.obstacles = [ObstacleState(o) for o in place_obstacles(graph, self.planned, config.n_obstacles, rng)]
+        targets = [s.node for s in self.stops] + [self.goal]
+        legs = [dijkstra(graph, a, b) for a, b in zip([self.start, *targets[:-1]], targets)]
+        self.planned: Route = join_routes(legs)
+        self.planned_legs: tuple[Route, ...] = tuple(legs)   # étapes prévues (distance restante affichée)
+        if obstacles is None:
+            obstacles = place_obstacles(graph, self.planned, config.n_obstacles, rng)
+        self.obstacles = [ObstacleState(o) for o in obstacles]
 
         self.costs = CostModel(graph)
-        self.car = Car(graph, self.planned)
+        self.car = Car(graph, legs[0])
         self.step_count = 0
         self.wait = 0
         self.pending_replan = False
@@ -107,7 +140,7 @@ class Episode:
     @property
     def speed_mps(self) -> float:
         """Vitesse actuelle de la voiture (0 à l'arrêt, réduite sur un tronçon où elle ralentit)."""
-        if self.done or self.wait > 0 or self.pending_replan:
+        if self.done or self.wait > 0 or self.pending_replan or self.dwell > 0 or self.leg_pending:
             return 0.0
         speed = self.config.car_speed_mps
         return speed / self.config.slow_factor if self._in_slow_zone() else speed
@@ -133,12 +166,24 @@ class Episode:
         if self.wait > 0:
             self.wait -= 1
             self.result.waiting_steps += 1
-        else:
+        elif self.dwell > 0:                  # arrêt prévu (dépose, course) : ce n'est pas une attente subie
+            self.dwell -= 1
+        elif not self.leg_pending or self._start_next_leg():
             self._detect()
             if self.wait == 0 and (not self.pending_replan or self._replan()):
                 self._move()
 
         self._finish_if_needed()
+
+    @property
+    def at_stop(self) -> str | None:
+        """Nom de l'arrêt prévu où la voiture se trouve en ce moment, sinon None."""
+        return self.stops[self.next_stop - 1].name if self.leg_pending and not self.done else None
+
+    @property
+    def target(self) -> int:
+        """Destination de l'étape en cours : le prochain arrêt prévu, ou l'arrivée."""
+        return self.stops[self.next_stop].node if self.next_stop < len(self.stops) else self.goal
 
     # ------------------------------------------------------------------ étapes
     def _remaining_obstacles(self):
@@ -187,7 +232,7 @@ class Episode:
         options = [(current[0], True)] if self.costs.is_blocked(current) else [(self.car.next_node, False), (current[0], True)]
         for start, u_turn in options:
             try:
-                route = dijkstra(self.graph, start, self.goal, self.costs)
+                route = dijkstra(self.graph, start, self.target, self.costs)
                 break
             except NoPathError:
                 continue
@@ -198,6 +243,20 @@ class Episode:
         self.car.follow(route, keep_current_edge=not u_turn)
         self.pending_replan, self.no_path_since = False, None
         self.result.replans += 1
+        self.result.u_turns += u_turn
+        return True
+
+    def _start_next_leg(self) -> bool:
+        """Après un arrêt prévu : calcule l'étape suivante, avec les blocages connus. False s'il n'y a aucun chemin."""
+        here = self.car.route.nodes[-1]
+        try:
+            route = dijkstra(self.graph, here, self.target, self.costs)
+        except NoPathError:
+            self.no_path_since = self.no_path_since or self.step_count
+            self.result.waiting_steps += 1
+            return False
+        self.car.start_leg(route)
+        self.leg_pending, self.no_path_since = False, None
         return True
 
     def _move(self) -> None:
@@ -223,7 +282,13 @@ class Episode:
     def _finish_if_needed(self) -> None:
         r = self.result
         r.steps, r.distance_m = self.step_count, self.car.distance_m
-        if self.car.arrived:
+        if self.car.arrived and not self.leg_pending and self.next_stop < len(self.stops):
+            stop = self.stops[self.next_stop]                  # arrêt prévu atteint : la voiture y reste un moment
+            r.stops_reached.append((stop.name, self.step_count))
+            self.next_stop += 1
+            self.dwell, self.leg_pending = stop.dwell_steps, True
+            self.pending_replan = False                        # l'étape suivante sera calculée au départ
+        elif self.car.arrived and not self.leg_pending:
             r.status = ARRIVED
         elif self.no_path_since is not None and self.step_count - self.no_path_since >= self.config.patience_steps:
             r.status = BLOCKED
@@ -255,8 +320,11 @@ def main() -> None:
 
     config = SimConfig(seed=args.seed)
     graph = load_map()
-    classifier, images = make_classifier(args.classifier, config), make_image_provider(config)
-    results = [Episode(graph, classifier, config, e, image_for=images).run() for e in range(args.episodes)]
+    classifier = make_classifier(args.classifier, config)
+    results = [
+        Episode(graph, classifier, config, e, image_for=make_image_provider(config, episode=e)).run()
+        for e in range(args.episodes)
+    ]
     out = save_encounters_csv(results, REPORTS_DIR / f"encounters_{args.classifier}_seed{args.seed}.csv")
     arrived = sum(r.status == ARRIVED for r in results)
     print(f"{classifier.name} : {arrived}/{len(results)} arrivés, "

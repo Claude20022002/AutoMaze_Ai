@@ -5,6 +5,7 @@
     python -m simulator.render3d.app --view conducteur                # poste de conduite et tableau de bord
     python -m simulator.render3d.app --traffic 0 --pedestrians 0      # sans trafic d'ambiance
     python -m simulator.render3d.app --screenshot capture.png         # image après 60 pas, sans fenêtre
+    python -m simulator.render3d.app --scenario contournement         # scénario Go/NoGo ou trajet quotidien
 
 Commandes : Espace pause · → pas à pas · ↑/↓ vitesse · V vue (poursuite, conducteur, dessus) ·
 R recommencer · N épisode suivant · Échap quitter.
@@ -88,7 +89,17 @@ class Simulator3D:
         self.args = args
         self.config = SimConfig(seed=args.seed)
         self.graph = load_map()
-        self.classifier, self.images = load_perception(args.classifier, self.config)
+        from simulator.main import episode_images
+        from simulator.scenarios import SCENARIOS
+
+        self.classifier, self.images = load_perception(args.classifier, self.config)[0], episode_images(self.config)
+
+        self.scenario = SCENARIOS[args.scenario] if args.scenario else None
+        # Ambiance du scénario (heure de pointe, sortie d'école…), sauf si la ligne de commande la fixe.
+        if args.traffic is None:
+            args.traffic = self.scenario.traffic if self.scenario else 80
+        if args.pedestrians is None:
+            args.pedestrians = self.scenario.pedestrians if self.scenario else 40
         self.catalog = load_catalog()
         self.frame = WorldFrame.from_graph(self.graph)
         self.font = accented_font(base.loader)
@@ -165,7 +176,10 @@ class Simulator3D:
         if self.traffic_view is not None:
             self.traffic_view.destroy()
             self.traffic = self.traffic_view = None
-        self.episode = Episode(self.graph, self.classifier, self.config, self.episode_number, image_for=self.images)
+        from simulator.main import make_episode
+
+        self.episode = make_episode(self.graph, self.classifier, self.config, self.episode_number, self.images,
+                                    self.scenario)
         if self.args.traffic > 0 or self.args.pedestrians > 0:
             from simulator.render3d.traffic import TrafficSim
             from simulator.render3d.traffic_view import TrafficView
@@ -262,10 +276,12 @@ class Simulator3D:
         traffic = ""
         if self.traffic_view is not None:
             self.traffic_view.update(camera_pos)
-            traffic = (f"\nTrafic : {len(self.traffic.vehicles)} véhicules, {len(self.traffic.pedestrians)} piétons, "
-                       f"{len(self.traffic.signals)} feux")
+            traffic = f" · trafic {len(self.traffic.vehicles)} véhicules, {len(self.traffic.pedestrians)} piétons"
         street = self._street()
-        self.panel.update(episode, self.view, self.time_factor, self.paused, street, traffic)
+        from simulator.main import scenario_status
+
+        self.panel.update(episode, self.view, self.time_factor, self.paused, street, traffic,
+                          scenario_status(self.scenario, episode))
         if self.view == "conducteur":
             from simulator.render3d.hud import latin
 
@@ -288,7 +304,9 @@ class Simulator3D:
         from simulator.world.road_map import street_name
 
         edge = self.episode.car.current_edge
-        return street_name(self.graph, edge) if edge is not None else "Arrivée"
+        if edge is None:
+            return f"Arrêt prévu : {self.episode.at_stop}" if self.episode.at_stop else "Arrivée"
+        return street_name(self.graph, edge)
 
     # ------------------------------------------------------------------ capture sans fenêtre
     def screenshot(self, path: Path, steps: int) -> Path:
@@ -311,6 +329,8 @@ class Simulator3D:
 
 
 def main(argv: list[str] | None = None) -> None:
+    from simulator.main import scenario_keys
+
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--classifier", default="simulation", help="simulation, reference ou ours")
     parser.add_argument("--seed", type=int, default=SimConfig.seed)
@@ -319,8 +339,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--size", type=_size, default=(1440, 860), help="taille de la fenêtre, par exemple 1600x900")
     parser.add_argument("--view", choices=VIEWS, default="poursuite", help="vue au démarrage (touche V)")
     parser.add_argument("--no-shadows", action="store_true", help="sans ombres portées (si l'affichage saccade)")
-    parser.add_argument("--traffic", type=int, default=80, help="véhicules du trafic d'ambiance (0 = aucun)")
-    parser.add_argument("--pedestrians", type=int, default=40, help="piétons sur les trottoirs (0 = aucun)")
+    parser.add_argument("--scenario", choices=scenario_keys(), help="scénario Go/NoGo ou trajet quotidien (défaut : tirage)")
+    parser.add_argument("--traffic", type=int, help="véhicules du trafic d'ambiance (0 = aucun ; défaut : 80 ou selon le scénario)")
+    parser.add_argument("--pedestrians", type=int, help="piétons sur les trottoirs (0 = aucun ; défaut : 40 ou selon le scénario)")
     parser.add_argument("--msaa", action="store_true", help="anticrénelage (plus joli, plus lent sur GPU intégré)")
     parser.add_argument("--screenshot", type=Path, help="enregistre une image au lieu d'ouvrir la fenêtre")
     parser.add_argument("--steps", type=int, default=60, help="pas simulés avant la capture")

@@ -118,7 +118,7 @@ class SidePanel:
         return window_w - PANEL_W + MARGIN, self.minimap_top, side
 
     def update(self, episode: Episode, view: str, time_factor: float, paused: bool, street: str,
-               traffic: str = "") -> None:
+               traffic: str = "", scenario: str = "") -> None:
         r = episode.result
         name = episode.classifier.name
         self.banner.setText(name)
@@ -128,7 +128,7 @@ class SidePanel:
             f"Épisode {episode.episode} · pas {episode.step_count} · {episode.speed_mps * 3.6:.0f} km/h · "
             f"×{time_factor:g} · {state}\n{latin(street)}\n"
             f"Obstacles classés {len(r.encounters)} / {len(episode.obstacles)} · collisions {r.collisions} · "
-            f"recalculs {r.replans}\nVue {view}{traffic}"
+            f"recalculs {r.replans}\nVue {view}{traffic}" + (f"\n{scenario}" if scenario else "")
         )
         if episode.last_detection is not self._detection:
             self._show_detection(episode.last_detection)

@@ -38,12 +38,14 @@ def make_classifier(name: str, config: SimConfig) -> Classifier:
     raise ValueError(f"classifieur inconnu : {name!r} (attendu : {CLASSIFIER_MODES})")
 
 
-def make_image_provider(config: SimConfig, crops_dir: Path | None = None) -> ImageProvider:
+def make_image_provider(config: SimConfig, crops_dir: Path | None = None, episode: int = 0) -> ImageProvider:
     """Renvoie une fonction ``obstacle -> image RGB uint8 (H, W, 3)``.
 
     - ``obstacle.image_path`` renseigné : cette image ;
     - sinon : une image de ``data/crops/test/<vraie classe>/`` tirée à partir de la graine et de l'obstacle,
       donc la même pour tous les classifieurs et à chaque passage ;
+    - ``episode`` change le tirage : l'itinéraire étant fixe, les obstacles reviennent sur les mêmes tronçons,
+      et sans ce paramètre les mêmes images reviendraient d'un épisode à l'autre ;
     - sans recadrage pour cette classe : une image de remplacement, propre à l'obstacle (léger bruit).
     """
     from simulator.perception.images import placeholder_image
@@ -55,7 +57,7 @@ def make_image_provider(config: SimConfig, crops_dir: Path | None = None) -> Ima
     def image_for(obstacle: Obstacle) -> np.ndarray:
         if obstacle not in cache:
             path = obstacle.image_path
-            seed = _obstacle_seed(config.seed, obstacle)
+            seed = _obstacle_seed(config.seed, obstacle, episode)
             if path is None:
                 path = bank.sample_image_path(obstacle.true_label, np.random.default_rng(seed))
             if path is None:
@@ -67,7 +69,7 @@ def make_image_provider(config: SimConfig, crops_dir: Path | None = None) -> Ima
     return image_for
 
 
-def _obstacle_seed(seed: int, obstacle: Obstacle) -> list[int]:
-    """Graine tirée de l'obstacle lui-même (et non de l'ordre des appels) : même obstacle = même image."""
+def _obstacle_seed(seed: int, obstacle: Obstacle, episode: int = 0) -> list[int]:
+    """Graine tirée de l'obstacle et de l'épisode (et non de l'ordre des appels) : même obstacle, même épisode = même image."""
     u, v, key = obstacle.edge
-    return [seed, u, v, key, CLASSES.index(obstacle.true_label), round(obstacle.offset_m * 1000)]
+    return [seed, episode, u, v, key, CLASSES.index(obstacle.true_label), round(obstacle.offset_m * 1000)]

@@ -70,6 +70,7 @@ class DriverView:
         self.graph = graph
         self._heading: np.ndarray | None = None
         self._images: dict = {}
+        self._image_source = None          # fonction d'images de l'épisode dont viennent les vignettes en cache
         self._sprites: dict = {}
         self.resize(rect)
         self._build_segments()
@@ -299,6 +300,9 @@ class DriverView:
         theme.draw_text(surface, f"portée du capteur : {z:.0f} m", (self.rect.x + 12, y + 4), 12, theme.PANEL)
 
     def _image(self, obstacle, image_for) -> pygame.Surface:
+        if image_for is not self._image_source:      # nouvel épisode : les images des obstacles changent
+            self._images.clear()
+            self._image_source = image_for
         if obstacle not in self._images:
             rgb = np.ascontiguousarray(image_for(obstacle).swapaxes(0, 1))
             self._images[obstacle] = pygame.surfarray.make_surface(rgb)

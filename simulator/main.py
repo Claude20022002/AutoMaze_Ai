@@ -3,6 +3,7 @@
     python -m simulator.main                                   # classifieur « simulation »
     python -m simulator.main --classifier ours --episode 3     # notre CNN, épisode n° 3
     python -m simulator.main --screenshot capture.png          # image après 150 pas, sans fenêtre
+    python -m simulator.main --scenario pieton                 # scénario (liste : python -m simulator.scenarios -h)
 
 Commandes : Espace pause · → pas à pas · ↑/↓ vitesse · V vue conducteur/carte · F11 plein écran ·
 R recommencer · N épisode suivant · Échap quitter. La fenêtre se redimensionne à la souris.
@@ -39,6 +40,38 @@ def load_perception(name: str, config: SimConfig):
         print("simulator.perception absent (équipe B) : classifieur de démonstration, images grises.")
         return _DemoClassifier(), gray_placeholder
     return make_classifier(name, config), make_image_provider(config)
+
+
+def episode_images(config: SimConfig):
+    """Fonction ``épisode -> images des obstacles`` : les images changent d'un épisode à l'autre, comme dans
+    ``compare.py`` (sinon un itinéraire fixe ferait revenir les mêmes images)."""
+    try:
+        from simulator.perception import make_image_provider
+    except ImportError:
+        return lambda episode: gray_placeholder
+    return lambda episode: make_image_provider(config, episode=episode)
+
+
+def make_episode(graph, classifier: Classifier, config: SimConfig, number: int, images, scenario=None) -> Episode:
+    """Épisode tiré au hasard (comportement historique) ou épisode d'un scénario (``simulator.scenarios``).
+    ``images`` : fonction ``épisode -> images des obstacles`` (``episode_images``)."""
+    if scenario is None:
+        return Episode(graph, classifier, config, number, image_for=images(number))
+    from simulator.scenarios import build_episode
+
+    return build_episode(scenario, graph, classifier, config, number, image_for=images(number))
+
+
+def scenario_status(scenario, episode: Episode) -> str:
+    """Une ligne pour l'interface : le scénario joué et, à la fin de l'épisode, s'il s'est réalisé."""
+    if scenario is None:
+        return ""
+    from simulator.scenarios import check
+
+    if not episode.done:
+        return f"{scenario.title} · en cours"
+    failed = [c.label for c in check(scenario, episode) if not c.ok]
+    return f"{scenario.title} · " + ("réalisé" if not failed else "non réalisé : " + "; ".join(failed).lower())
 
 
 class _PlaceholderCamera:
@@ -92,15 +125,20 @@ def run(args: argparse.Namespace) -> Path | None:
     from simulator.ui.minimap import MiniMap
     from simulator.world.road_map import landmark_node, load_map
 
+    from simulator.scenarios import SCENARIOS
+
     config = SimConfig(seed=args.seed)
     graph = load_map()
-    classifier, images = load_perception(args.classifier, config)
+    classifier, images = load_perception(args.classifier, config)[0], episode_images(config)
+    scenario =SCENARIOS[args.scenario] if args.scenario else None
+    start_name, goal_name = (scenario.start, scenario.goal) if scenario else (config.start, config.goal)
 
     pygame.init()
     size = args.size or default_window_size()
     screen = pygame.display.set_mode(size, pygame.RESIZABLE)
     pygame.display.set_caption("AutoMaze AI — simulateur (Casablanca)")
-    focus = [landmark_node(graph, config.start), landmark_node(graph, config.goal)]
+    focus = [landmark_node(graph, name) for name in
+             ([start_name, *(s.place for s in scenario.stops), goal_name] if scenario else [start_name, goal_name])]
     driver_view = DriverView(graph, pygame.Rect(0, 0, *size))  # la géométrie de la ville est préparée une fois
     views: dict = {}
     view_mode = args.view
@@ -121,7 +159,7 @@ def run(args: argparse.Namespace) -> Path | None:
     layout(*size)
 
     def new_episode(number: int) -> Episode:
-        return Episode(graph, classifier, config, number, image_for=images)
+        return make_episode(graph, classifier, config, number, images, scenario)
 
     episode_number = args.episode
     episode = new_episode(episode_number)
@@ -189,12 +227,12 @@ def run(args: argparse.Namespace) -> Path | None:
 
         screen.fill((236, 234, 228))
         if view_mode == "conducteur":
-            driver_view.draw(screen, episode, images, position, heading)
+            driver_view.draw(screen, episode, episode.image_for, position, heading)
             views["minimap"].draw(screen, episode, position, heading)
         else:
-            views["map"].draw(screen, episode, config.start, config.goal)
+            views["map"].draw(screen, episode, start_name, goal_name)
         views["camera"].draw(screen, episode.last_detection)
-        views["hud"].draw(screen, episode, paused, time_factor)
+        views["hud"].draw(screen, episode, paused, time_factor, scenario_status(scenario, episode))
         pygame.display.flip()
 
         if args.screenshot:
@@ -220,11 +258,18 @@ def _size(text: str) -> tuple[int, int]:
     return int(width), int(height)
 
 
+def scenario_keys() -> list[str]:
+    from simulator.scenarios import SCENARIOS
+
+    return list(SCENARIOS)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--classifier", default="simulation", help="simulation, reference ou ours (équipe B)")
     parser.add_argument("--seed", type=int, default=SimConfig.seed)
     parser.add_argument("--episode", type=int, default=0)
+    parser.add_argument("--scenario", choices=scenario_keys(), help="scénario Go/NoGo ou trajet quotidien (défaut : tirage)")
     parser.add_argument("--time-factor", type=float, default=1.0, help="1 = temps réel, 2 = deux fois plus vite (↑/↓)")
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--size", type=_size, help="taille de la fenêtre, par exemple 1600x900 (défaut : selon l'écran)")

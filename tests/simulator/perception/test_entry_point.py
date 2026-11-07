@@ -71,6 +71,12 @@ def test_same_obstacle_same_image(crops_dir):
     assert np.array_equal(first(obstacle), second(obstacle))  # indépendant de l'ordre des appels
 
 
+def test_same_obstacle_changes_image_between_episodes(crops_dir):
+    """Les obstacles reviennent sur les mêmes tronçons : sans cela, l'échantillon mesuré serait bien plus petit."""
+    seen = {make_image_provider(SimConfig(seed=3), crops_dir=crops_dir, episode=e)(_obstacle()).tobytes() for e in range(30)}
+    assert len(seen) > 3
+
+
 def test_different_obstacles_use_several_images(crops_dir):
     images = make_image_provider(SimConfig(seed=3), crops_dir=crops_dir)
     seen = {images(_obstacle(edge=(i, i + 1, 0))).tobytes() for i in range(30)}

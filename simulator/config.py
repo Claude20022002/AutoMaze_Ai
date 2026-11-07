@@ -25,6 +25,14 @@ LANDMARKS: dict[str, tuple[float, float]] = {
     "Twin Center (Maârif)": (33.58658, -7.63229),
     "Place Mohammed V (centre-ville)": (33.59164, -7.61984),
     "Boulevard d'Anfa": (33.59078, -7.63667),
+    # Lieux des trajets quotidiens (simulator/scenarios.py), géocodés sur OSM (Nominatim) le 7 novembre 2026.
+    # Le parc et l'hôpital sont de grandes emprises : l'intersection retenue est à environ 170 m de leur centre.
+    "Quartier Gauthier": (33.59082, -7.62795),
+    "Lycée Lyautey": (33.59567, -7.63218),
+    "Marché du Maârif": (33.58452, -7.63337),
+    "Parc de la Ligue Arabe": (33.58817, -7.62334),
+    "Gare Casa-Port": (33.59962, -7.61420),
+    "Hôpital Ibn Rochd": (33.57928, -7.61941),
 }
 
 # Table classe prédite -> action. Proposition à valider avec l'équipe modèle.

@@ -85,6 +85,11 @@ class Car:
             self.progress_m = 0.0
         self.edge_index = 0
 
+    def start_leg(self, new_route: Route) -> None:
+        """Étape suivante d'un trajet, depuis l'arrêt où se trouve la voiture (distance parcourue conservée)."""
+        assert self.arrived and new_route.nodes[0] == self.route.nodes[-1], "l'étape doit partir de l'arrêt"
+        self.route, self.edge_index, self.progress_m = new_route, 0, 0.0
+
     def heading(self, look_ahead_m: float = 6.0) -> tuple[float, float]:
         """Direction de la voiture (vecteur unitaire en mètres), mesurée vers un point un peu plus loin sur l'itinéraire."""
         here = self.position_xy()

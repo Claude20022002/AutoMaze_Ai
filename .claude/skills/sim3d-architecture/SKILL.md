@@ -82,6 +82,11 @@ simulator/
 tests/simulator/render3d/     catalogue, géométrie pure, vraie carte, capture 3D dans un sous-processus
 ```
 
+Scénarios (7 novembre 2026) : `simulator/scenarios.py`, logique pure, sans affichage. `--scenario <clé>` dans
+`app.py` choisit l'épisode (`main.make_episode`), l'ambiance du trafic (`Scenario.traffic`, `pedestrians`, sauf
+si `--traffic` / `--pedestrians` sont donnés) et ajoute une ligne « scénario · en cours / réalisé » au panneau.
+Les arrêts prévus (`Episode.stops`, `at_stop`) s'affichent dans le tableau de bord.
+
 Pas encore faits : capteur caméra RGB 3D et recadrage (mode `--perception render`, recettes dans
 `panda3d-recipes`), réglages d'heure et de météo, parcs OSM (`leisure=park`), changements de voie.
 

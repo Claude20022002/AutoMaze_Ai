@@ -69,7 +69,8 @@ class MapView:
         self._polyline(surface, car.driven_edges, theme.DRIVEN, 3)                     # chemin parcouru
         self._polyline(surface, list(episode.costs.blocked), theme.BLOCKED, 4)         # rues bloquées
 
-        for name, node, label in ((start_name, episode.start, "A"), (goal_name, episode.goal, "B")):
+        stops = [(stop.name, stop.node, str(i + 1)) for i, stop in enumerate(getattr(episode, "stops", ()))]
+        for name, node, label in ((start_name, episode.start, "A"), *stops, (goal_name, episode.goal, "B")):
             x, y = self.to_screen(self.graph.nodes[node]["x"], self.graph.nodes[node]["y"])
             pygame.draw.circle(surface, theme.TEXT, (x, y), 11)
             theme.draw_text(surface, label, (x - 5, y - 11), 15, theme.PANEL, bold=True)

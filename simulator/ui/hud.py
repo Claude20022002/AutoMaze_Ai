@@ -20,7 +20,7 @@ class Hud:
     def __init__(self, rect: pygame.Rect) -> None:
         self.rect = rect
 
-    def draw(self, surface: pygame.Surface, episode, paused: bool, time_factor: float) -> None:
+    def draw(self, surface: pygame.Surface, episode, paused: bool, time_factor: float, scenario: str = "") -> None:
         pygame.draw.rect(surface, theme.PANEL, self.rect, border_radius=8)
         pygame.draw.rect(surface, theme.BORDER, self.rect, 1, border_radius=8)
         x, y, width = self.rect.x + 16, self.rect.y + 12, self.rect.w - 32
@@ -39,11 +39,18 @@ class Hud:
             status, color = "Bloqué : aucun chemin", theme.BLOCKED
         elif r.status:
             status, color = r.status.capitalize(), theme.BLOCKED
+        elif getattr(episode, "at_stop", None):
+            status, color = f"Arrêt prévu : {episode.at_stop}", theme.GOOD
         elif episode.wait > 0:
             status, color = "À l'arrêt", theme.WARNING
         else:
             status, color = ("En pause" if paused else "En route"), theme.TEXT
         y += theme.draw_text(surface, status, (x, y), 18, color, bold=True) + 2
+        if scenario:                                   # scénario joué et, à la fin, s'il s'est réalisé
+            done = episode.done
+            ok = done and " · réalisé" in scenario
+            scenario_color = (theme.GOOD if ok else theme.BLOCKED) if done else theme.ROUTE
+            y += theme.draw_text(surface, scenario, (x, y), 14, scenario_color, bold=True, max_width=width) + 2
 
         street = theme.latin(street_name(episode.graph, car.current_edge)) if car.current_edge else "—"
         lines = [

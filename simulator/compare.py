@@ -49,7 +49,6 @@ def run_comparison(modes: Sequence[str], episodes: int, config: SimConfig, graph
     from simulator.world.road_map import load_map
 
     graph = load_map() if graph is None else graph
-    images = make_image_provider(config) if images is None else images  # mêmes images pour tous
     reports: list[ClassifierReport] = []
     unavailable: list[Unavailable] = []
     for mode in modes:
@@ -58,7 +57,11 @@ def run_comparison(modes: Sequence[str], episodes: int, config: SimConfig, graph
         except (NotImplementedError, FileNotFoundError, ValueError) as error:
             unavailable.append(Unavailable(mode, str(error)))
             continue
-        results = [Episode(graph, classifier, config, e, image_for=images).run() for e in range(episodes)]
+        # Pour un même épisode, chaque classifieur voit les mêmes images ; d'un épisode à l'autre, elles changent.
+        results = [
+            Episode(graph, classifier, config, e, image_for=images or make_image_provider(config, episode=e)).run()
+            for e in range(episodes)
+        ]
         if csv_dir is not None:
             save_encounters_csv(results, csv_dir / f"encounters_{mode}_seed{config.seed}_{episodes}ep.csv")
         reports.append(build_report(classifier.name, results))
