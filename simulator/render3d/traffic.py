@@ -499,6 +499,20 @@ def ego_state(episode, ego_length: float) -> EgoState:
     car = episode.car
     length = ego_length + episode.config.car_speed_mps * episode.config.step_seconds
     upcoming, ahead = [], 0.0
+    if car.returning:
+        # Retour après un demi-tour : l'ego roule en sens inverse sur son tronçon (sens inverse de la rue s'il existe).
+        u, v, _ = car.return_edge
+        graph = car.graph
+        reverse = next(((v, u, k) for k in graph[v][u]), None) if graph.has_edge(v, u) else None
+        progress = car.edge_length(reverse) - car.return_m if reverse is not None else 0.0
+        ahead = car.return_m
+        for edge in car.route.edges:
+            upcoming.append((edge, ahead))
+            ahead += car.edge_length(edge)
+            if ahead > EGO_ROUTE_HORIZON_M:
+                break
+        return EgoState(reverse, max(progress, 0.0), episode.speed_mps, length, car.position_xy(), upcoming,
+                        car.return_edge, car.heading())
     if not car.arrived:
         ahead = car.edge_length(car.route.edges[car.edge_index]) - car.progress_m
         for edge in car.route.edges[car.edge_index + 1:]:

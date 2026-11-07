@@ -20,8 +20,8 @@ from simulator.contracts import CLASSES_FR, UNKNOWN
 from simulator.engine import Episode
 from simulator.render3d.catalog import Catalog, load_model
 from simulator.render3d.masks import no_shadow, only_on_main_view
-from simulator.render3d.world_mesh import LANE_OFFSET_M, ROAD_Z, WorldFrame, heading_deg, road_width
-from simulator.world.car import point_on_edge
+from simulator.render3d.world_mesh import ROAD_Z, WorldFrame, heading_deg, is_two_way, lane_offset, road_width
+from simulator.world.car import Car, point_on_edge
 from simulator.world.obstacles import ObstacleState
 
 LEAVE_SPEED_MPS = {"bicycle": 4.0, "motorcycle": 8.0}   # vitesse à laquelle un deux-roues repart
@@ -56,19 +56,58 @@ def lane_point(frame: WorldFrame, x: float, y: float, dx: float, dy: float, late
     return frame.to_local(x + dy * lateral_m, y - dx * lateral_m)
 
 
+def driving_lateral(graph: nx.MultiDiGraph, edge, backwards: bool) -> float:
+    """Décalage vers la droite du sens de marche sur un tronçon. En marche à contresens d'un sens unique
+    (retour après un demi-tour), la voiture roule au milieu de la chaussée."""
+    if edge is None:
+        return 0.0
+    data = graph.edges[edge]
+    return 0.0 if backwards and not is_two_way(data) else lane_offset(data)
+
+
+def ego_body(graph: nx.MultiDiGraph, car: Car, distance_m: float, length_m: float,
+             smooth_m: float = 4.0) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Centre (x, y) et cap unitaire de la carrosserie quand l'avant a parcouru ``distance_m`` mètres.
+
+    L'avant et l'arrière sont posés sur la trace réelle de la voiture (``Car.trail``), chacun décalé sur sa voie :
+    la carrosserie suit les virages sans couper les trottoirs et tourne pendant un demi-tour au lieu de sauter.
+    Le décalage de voie est moyenné sur ``smooth_m`` mètres pour changer de voie en douceur d'une rue à l'autre.
+    """
+    def lane_side(s: float) -> tuple[float, float]:
+        _, x, y, _, _ = car.trail_point(s)
+        _, ax, ay, _, _ = car.trail_point(s - 1.0)
+        _, bx, by, _, _ = car.trail_point(s + 1.0)
+        dx, dy = bx - ax, by - ay
+        norm = math.hypot(dx, dy)
+        if norm < 1e-6:
+            dx, dy = car.heading()
+            norm = 1.0
+        dx, dy = dx / norm, dy / norm
+        samples = [car.trail_point(s + k * smooth_m / 2) for k in (-2, -1, 0, 1, 2)]
+        lateral = sum(driving_lateral(graph, p[3], p[4]) for p in samples) / len(samples)
+        return x + dy * lateral, y - dx * lateral
+
+    fx, fy = lane_side(distance_m)
+    rx, ry = lane_side(distance_m - length_m)
+    dx, dy = fx - rx, fy - ry
+    norm = math.hypot(dx, dy)
+    if norm < 0.5 * length_m:                  # début d'épisode : pas encore de trace derrière l'avant
+        hx, hy = car.heading()
+        return (fx - hx * length_m / 2, fy - hy * length_m / 2), (hx, hy)
+    return ((fx + rx) / 2, (fy + ry) / 2), (dx / norm, dy / norm)
+
+
 class EgoCar:
     def __init__(self, parent, catalog: Catalog, loader, frame: WorldFrame) -> None:
         self.frame = frame
-        self.half_length = catalog.ego.length_m / 2
+        self.length = catalog.ego.length_m
         self.node = load_model(catalog.ego, loader)
         self.node.reparentTo(parent)
 
-    def place(self, position: tuple[float, float], heading: tuple[float, float]) -> None:
-        (x, y), (hx, hy) = position, heading
-        norm = math.hypot(hx, hy) or 1.0
-        hx, hy = hx / norm, hy / norm
-        x, y = x - hx * self.half_length, y - hy * self.half_length   # le point du moteur = pare-chocs avant
-        lx, ly = lane_point(self.frame, x, y, hx, hy, LANE_OFFSET_M)
+    def place(self, center: tuple[float, float], heading: tuple[float, float]) -> None:
+        """``center`` : centre de la carrosserie déjà posé sur sa voie (``ego_body``), coordonnées de la carte."""
+        (x, y), (hx, hy) = center, heading
+        lx, ly = self.frame.to_local(x, y)
         self.node.setPos(lx, ly, ROAD_Z)
         self.node.setH(heading_deg(hx, hy))
 
@@ -91,6 +130,7 @@ class ObstacleView:
         self.actor = self.model.getPythonTag("actor")
         self.animation: str | None = None
         self.half_width = road_width(graph.edges[obstacle.edge]) / 2
+        self.lane = lane_offset(graph.edges[obstacle.edge])     # même voie que l'ego, qui s'arrête derrière
         self.edge_length = float(graph.edges[obstacle.edge]["length"])
 
         text = TextNode("etiquette")
@@ -126,7 +166,7 @@ class ObstacleView:
         offset = obstacle.offset_m
         if self.entry.length_m is not None:
             offset += self.entry.length_m / 2               # le point du moteur = arrière du véhicule
-        lateral, extra_heading = LANE_OFFSET_M, 0.0
+        lateral, extra_heading = self.lane, 0.0
         detected, cleared = state.detected_step, state.cleared_step
         visible = True
         if self.label == "person":
@@ -134,7 +174,7 @@ class ObstacleView:
             far_side = -(self.half_width + 1.2)
             if detected is not None and cleared is not None and cleared > detected:
                 fraction = min(max((t - detected) / (cleared - detected), 0.0), 1.0)
-                lateral = LANE_OFFSET_M + (far_side - LANE_OFFSET_M) * fraction
+                lateral = self.lane + (far_side - self.lane) * fraction
                 self._play("walk" if 0.0 < fraction < 1.0 else "idle")
             else:
                 self._play("idle")
@@ -201,9 +241,10 @@ class RouteLine:
         for edge in car.route.edges[car.edge_index:]:
             length = float(self.graph.edges[edge]["length"])
             steps = max(2, int(length / 5) + 1)
+            lane = lane_offset(self.graph.edges[edge])
             for i in range(steps):
                 x, y, dx, dy = edge_pose(self.graph, edge, length * i / (steps - 1))
-                lx, ly = lane_point(self.frame, x, y, dx, dy, LANE_OFFSET_M)
+                lx, ly = lane_point(self.frame, x, y, dx, dy, lane)
                 (lines.moveTo if i == 0 else lines.drawTo)(lx, ly, ROAD_Z + 0.08)
         self.node = self.parent.attachNewNode(lines.create())
         self.node.setLightOff()

@@ -22,7 +22,8 @@ from simulator.render3d.actors import lane_point
 from simulator.render3d.catalog import Catalog, load_model
 from simulator.render3d.masks import no_shadow
 from simulator.render3d.traffic import SIDEWALK_OFFSET_M, TrafficSim, Vehicle
-from simulator.render3d.world_mesh import LANE_OFFSET_M, ROAD_Z, SIDEWALK_Z, WorldFrame, heading_deg, road_width
+from simulator.render3d.world_mesh import (LANE_OFFSET_M, ROAD_Z, SIDEWALK_Z, WorldFrame, heading_deg, lane_offset,
+                                           road_width)
 
 LAMP_ON = {"red": (1.0, 0.16, 0.10), "yellow": (1.0, 0.72, 0.08), "green": (0.20, 1.0, 0.40)}
 LAMP_OFF = (0.16, 0.16, 0.17)
@@ -102,9 +103,10 @@ def _point_along(paths: EdgePaths, vehicle: Vehicle, back_m: float) -> tuple[flo
     return paths.pose(vehicle.prev_edge, max(previous + s, 0.0))
 
 
-def vehicle_pose(paths: EdgePaths, frame: WorldFrame, vehicle: Vehicle, width: float) -> tuple[float, float, float]:
-    """(x, y, cap) locaux du centre du véhicule, sur sa voie (deux-roues : près du trottoir)."""
-    lateral = max(LANE_OFFSET_M, width / 2 - 1.0) if vehicle.kind in ("bicycle", "motorcycle") else LANE_OFFSET_M
+def vehicle_pose(paths: EdgePaths, frame: WorldFrame, vehicle: Vehicle, width: float,
+                 lane: float = LANE_OFFSET_M) -> tuple[float, float, float]:
+    """(x, y, cap) locaux du centre du véhicule, sur sa voie ``lane`` (deux-roues : près du trottoir)."""
+    lateral = max(lane, width / 2 - 1.0) if vehicle.kind in ("bicycle", "motorcycle") else lane
     fx, fy, fdx, fdy = _point_along(paths, vehicle, 0.0)
     rx, ry, rdx, rdy = _point_along(paths, vehicle, vehicle.length)
     front = lane_point(frame, fx, fy, fdx, fdy, lateral)
@@ -175,6 +177,7 @@ class TrafficView:
         self.minimap = minimap
         self._templates: dict[str, NodePath] = {}
         self._vehicles: dict[int, tuple[str, NodePath]] = {}
+        self._lanes: dict = {}                     # tronçon -> décalage de la voie de droite (world_mesh.lane_offset)
         self._people: dict[int, tuple[NodePath, object, str, str | None]] = {}
         self.lights = self._build_lights()
 
@@ -288,7 +291,10 @@ class TrafficView:
             if vehicle.vid not in self._vehicles:
                 self._vehicles[vehicle.vid] = self._vehicle_node(vehicle)
             _, node = self._vehicles[vehicle.vid]
-            x, y, h = vehicle_pose(paths, frame, vehicle, sim.width[vehicle.edge])
+            lane = self._lanes.get(vehicle.edge)
+            if lane is None:                     # calculé une fois par tronçon
+                lane = self._lanes[vehicle.edge] = lane_offset(self.graph.edges[vehicle.edge])
+            x, y, h = vehicle_pose(paths, frame, vehicle, sim.width[vehicle.edge], lane)
             node.setPos(x, y, ROAD_Z)
             node.setH(h)
             distance = math.hypot(x - cx, y - cy)

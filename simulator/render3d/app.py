@@ -196,11 +196,12 @@ class Simulator3D:
         self.obstacle_views = [ObstacleView(self.dynamic, state, self.graph, self.catalog, self.base.loader,
                                             self.frame, seed, self.font, self.minimap)
                                for state in self.episode.obstacles]
-        self.previous = (self.episode.car.position_xy(), self.episode.car.heading())
+        self.episode.car.record_path = True       # trace du chemin : la carrosserie le suit entre deux pas
+        self.previous_distance = 0.0
         self.budget = 0.0
 
     def advance(self) -> None:
-        self.previous = (self.episode.car.position_xy(), self.episode.car.heading())
+        self.previous_distance = self.episode.car.distance_m
         self.episode.step()
 
     def _ego_state(self):
@@ -254,14 +255,13 @@ class Simulator3D:
         self.apply_layout()
         episode = self.episode
         alpha = 1.0 if (self.paused or episode.done) else min(self.budget, 1.0)
-        (px, py), (hx, hy) = self.previous
-        cx, cy = episode.car.position_xy()
-        if abs(cx - px) + abs(cy - py) > 60:          # demi-tour ou nouvel épisode : pas d'interpolation
-            alpha = 1.0
-        hx2, hy2 = episode.car.heading()
-        position = (px + (cx - px) * alpha, py + (cy - py) * alpha)
-        heading = (hx + (hx2 - hx) * alpha, hy + (hy2 - hy) * alpha)
-        self.ego.place(position, heading)
+        # La voiture avance le long du chemin réellement parcouru pendant le pas (virages, demi-tours compris),
+        # et non en ligne droite entre deux positions : plus de saut ni de coupe de trottoir.
+        from simulator.render3d.actors import ego_body
+
+        start, end = self.previous_distance, episode.car.distance_m
+        center, heading = ego_body(self.graph, episode.car, start + (end - start) * alpha, self.ego.length)
+        self.ego.place(center, heading)
         # Vue conducteur : la carrosserie de l'ego masquerait la route (elle reste visible sur la minicarte).
         (self.ego.node.hide if self.view == "conducteur" else self.ego.node.show)(MAIN_MASK)
         self._place_camera()

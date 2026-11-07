@@ -78,7 +78,7 @@ def remaining_m(episode: Episode) -> float:
     if car.arrived:
         return later
     edges = car.route.edges[car.edge_index:]
-    return sum(car.edge_length(e) for e in edges) - car.progress_m + later
+    return car.return_m + sum(car.edge_length(e) for e in edges) - car.progress_m + later
 
 
 def object_text(ahead: ObjectAhead | None) -> str:
