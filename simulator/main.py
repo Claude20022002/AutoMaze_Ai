@@ -130,18 +130,26 @@ def run(args: argparse.Namespace) -> Path | None:
     config = SimConfig(seed=args.seed)
     graph = load_map()
     classifier, images = load_perception(args.classifier, config)[0], episode_images(config)
-    scenario =SCENARIOS[args.scenario] if args.scenario else None
-    start_name, goal_name = (scenario.start, scenario.goal) if scenario else (config.start, config.goal)
+    scenario = SCENARIOS[args.scenario] if args.scenario else None
+
+    def places(scenario) -> tuple[str, str, list[int]]:
+        """Noms du départ et de l'arrivée, et intersections à garder dans le cadre de la vue carte."""
+        if scenario is None:
+            return config.start, config.goal, [landmark_node(graph, config.start), landmark_node(graph, config.goal)]
+        names = [scenario.start, *(s.place for s in scenario.stops), scenario.goal]
+        return scenario.start, scenario.goal, [landmark_node(graph, name) for name in names]
+
+    start_name, goal_name, focus = places(scenario)
 
     pygame.init()
     size = args.size or default_window_size()
     screen = pygame.display.set_mode(size, pygame.RESIZABLE)
     pygame.display.set_caption("AutoMaze AI — simulateur (Casablanca)")
-    focus = [landmark_node(graph, name) for name in
-             ([start_name, *(s.place for s in scenario.stops), goal_name] if scenario else [start_name, goal_name])]
     driver_view = DriverView(graph, pygame.Rect(0, 0, *size))  # la géométrie de la ville est préparée une fois
     views: dict = {}
     view_mode = args.view
+    SCENARIO_KEYS = {pygame.K_0: None, pygame.K_1: "route_libre", pygame.K_2: "pieton",   # noqa: N806
+                     pygame.K_3: "route_bloquee", pygame.K_4: "contournement"}
 
     def layout(width: int, height: int) -> None:
         """Place les zones selon la taille de la fenêtre : grande vue à gauche, panneau à droite."""
@@ -165,11 +173,12 @@ def run(args: argparse.Namespace) -> Path | None:
     episode = new_episode(episode_number)
     clock = pygame.time.Clock()
     time_factor, paused, budget, fullscreen = args.time_factor, False, 0.0, False
-    previous = (episode.car.position_xy(), episode.car.heading())  # pour lisser la caméra entre deux pas
+    episode.car.record_path = True     # trace du chemin : la voiture le suit entre deux pas (virages, demi-tours)
+    previous = 0.0                     # distance parcourue au pas précédent
 
     def advance() -> None:
         nonlocal previous
-        previous = (episode.car.position_xy(), episode.car.heading())
+        previous = episode.car.distance_m
         episode.step()
 
     if args.screenshot:  # avance de N pas puis enregistre l'image
@@ -201,11 +210,23 @@ def run(args: argparse.Namespace) -> Path | None:
                     screen = pygame.display.set_mode((0, 0) if fullscreen else size,
                                                      pygame.FULLSCREEN if fullscreen else pygame.RESIZABLE)
                     layout(*screen.get_size())
+                elif event.key in (pygame.K_s, *SCENARIO_KEYS):     # S : scénario suivant ; 0 à 4 : choix direct
+                    keys = [None, *SCENARIOS]
+                    if event.key == pygame.K_s:
+                        chosen = keys[(keys.index(scenario.key if scenario else None) + 1) % len(keys)]
+                    else:
+                        chosen = SCENARIO_KEYS[event.key]
+                    scenario = SCENARIOS[chosen] if chosen else None
+                    start_name, goal_name, focus = places(scenario)
+                    layout(*screen.get_size())
+                    episode_number = 0
+                    episode = new_episode(episode_number)
+                    episode.car.record_path, previous = True, 0.0
                 elif event.key in (pygame.K_r, pygame.K_n):
                     if event.key == pygame.K_n:
                         episode_number += 1
                     episode = new_episode(episode_number)
-                    previous = (episode.car.position_xy(), episode.car.heading())
+                    episode.car.record_path, previous = True, 0.0
 
         dt = clock.tick(args.fps) / 1000
         if not paused and not episode.done and not args.screenshot:
@@ -215,15 +236,10 @@ def run(args: argparse.Namespace) -> Path | None:
                 advance()
                 budget -= 1
 
-        # Position affichée : interpolée entre le pas précédent et le pas actuel (mouvement fluide).
+        # Position affichée : le long du chemin réellement parcouru pendant le pas (mouvement fluide, sans saut).
         alpha = 1.0 if (paused or episode.done or args.screenshot) else min(budget, 1.0)
-        (px, py), (hx, hy) = previous
-        cx, cy = episode.car.position_xy()
-        if abs(cx - px) + abs(cy - py) > 60:  # demi-tour ou nouvel épisode : pas d'interpolation
-            alpha = 1.0
-        hx2, hy2 = episode.car.heading()
-        position = (px + (cx - px) * alpha, py + (cy - py) * alpha)
-        heading = (hx + (hx2 - hx) * alpha, hy + (hy2 - hy) * alpha)
+        distance = previous + (episode.car.distance_m - previous) * alpha
+        position, heading = episode.car.pose_at(distance, CAR_BODY_M)
 
         screen.fill((236, 234, 228))
         if view_mode == "conducteur":
@@ -233,6 +249,7 @@ def run(args: argparse.Namespace) -> Path | None:
             views["map"].draw(screen, episode, start_name, goal_name)
         views["camera"].draw(screen, episode.last_detection)
         views["hud"].draw(screen, episode, paused, time_factor, scenario_status(scenario, episode))
+        draw_event_banner(screen, episode, views["map"].rect)
         pygame.display.flip()
 
         if args.screenshot:
@@ -241,6 +258,26 @@ def run(args: argparse.Namespace) -> Path | None:
             pygame.image.save(screen, str(out))
             pygame.quit()
             return out
+
+
+CAR_BODY_M = 4.4    # longueur de la voiture : son cap suit le chemin entre l'avant et l'arrière
+
+
+def draw_event_banner(surface, episode: Episode, area) -> None:
+    """Bandeau en haut de la grande vue : ce que la voiture vient de faire (obstacle classé, demi-tour, arrêt…)."""
+    import pygame
+
+    from simulator.ui import theme
+
+    event = episode.recent_event()
+    if not event:
+        return
+    font = theme.font(17, bold=True)
+    width, height = font.size(event)
+    box = pygame.Rect(0, 0, min(width + 32, area.w - 32), height + 14)
+    box.midtop = (area.centerx, area.y + 14)
+    pygame.draw.rect(surface, (24, 28, 36), box, border_radius=8)
+    theme.draw_text(surface, event, (box.x + 16, box.y + 7), 17, theme.PANEL, bold=True, max_width=box.w - 32)
 
 
 def default_window_size() -> tuple[int, int]:
