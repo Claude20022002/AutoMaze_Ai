@@ -21,7 +21,8 @@ PANEL_W = 400
 MARGIN = 16
 CREDITS = ("Carte et bâtiments © contributeurs OpenStreetMap (ODbL). Modèles 3D : Kenney, Quaternius (CC0) ; "
            "« Bicycle », « Motorcycle » par Poly by Google, « Truckk » par KolosStudios (CC-BY 3.0, poly.pizza).")
-HELP = "Espace pause · → pas à pas · ↑/↓ vitesse · V vue · R recommencer · N épisode suivant · Échap quitter"
+HELP = ("Espace pause · → pas à pas · ↑/↓ vitesse · V vue · S scénario suivant · 1 à 4 scénarios Go/NoGo · "
+        "0 tirage · R · N épisode suivant · Échap")
 
 # Couleurs par classe : celles de ui/theme.py, de 0 à 1.
 CLASS_COLORS = {
@@ -62,6 +63,35 @@ def image_texture(image_rgb: np.ndarray):
     tex.setup2dTexture(w, h, Texture.T_unsigned_byte, Texture.F_rgb)
     tex.setRamImageAs(np.ascontiguousarray(image_rgb[::-1]).tobytes(), "RGB")   # Panda3D : origine en bas
     return tex
+
+
+class EventBanner:
+    """Bandeau en haut de la vue 3D : ce que la voiture vient de faire (obstacle classé, demi-tour, arrêt…).
+
+    Il reste affiché quelques pas après l'événement (``Episode.recent_event``) : on voit ainsi chaque étape
+    d'un scénario au moment où elle se produit, sans lire le panneau."""
+
+    def __init__(self, base, font=None) -> None:
+        from direct.gui.OnscreenText import OnscreenText
+        from panda3d.core import TextNode
+
+        self.text = OnscreenText(parent=base.pixel2d, text="", scale=19, fg=(1, 1, 1, 1), align=TextNode.ACenter,
+                                 font=font, mayChange=True)
+        node = self.text.textNode
+        node.setCardColor(0.08, 0.10, 0.14, 0.82)
+        node.setCardAsMargin(0.8, 0.8, 0.45, 0.35)
+        node.setCardDecal(True)
+        self._shown = None
+
+    def layout(self, scene_w: int) -> None:
+        self.text.setPos(scene_w / 2, -46)
+
+    def update(self, episode: Episode) -> None:
+        event = episode.recent_event()
+        if event != self._shown:
+            self._shown = event
+            self.text.setText(event or "")
+            (self.text.show if event else self.text.hide)()
 
 
 class SidePanel:
