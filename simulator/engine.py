@@ -24,7 +24,7 @@ import networkx as nx
 import numpy as np
 
 from simulator.config import REPORTS_DIR, SimConfig
-from simulator.contracts import Action, Classifier, EncounterLog, Obstacle, Prediction
+from simulator.contracts import CLASSES_FR, Action, Classifier, EncounterLog, Obstacle, Prediction
 from simulator.world.car import Car
 from simulator.world.decisions import apply_action
 from simulator.world.obstacles import ObstacleState, place_obstacles
@@ -130,6 +130,7 @@ class Episode:
         self.collided: set[int] = set()
         self.last_detection: Detection | None = None
         self.last_collision_step: int | None = None
+        self.events: list[tuple[int, str]] = []   # (pas, ce qui vient de se passer) : affiché par les vues
         self.result = EpisodeResult(episode, classifier.name, None, 0, 0.0, self.planned.length_m, 0, 0, 0)
 
     # ------------------------------------------------------------------ boucle
@@ -175,6 +176,9 @@ class Episode:
 
         self._finish_if_needed()
 
+    def _event(self, text: str) -> None:
+        self.events.append((self.step_count, text))
+
     @property
     def at_stop(self) -> str | None:
         """Nom de l'arrêt prévu où la voiture se trouve en ce moment, sinon None."""
@@ -205,6 +209,7 @@ class Episode:
             prediction = self.classifier.predict(image, true_label=obstacle.true_label)
             action = self.config.decision_rules[prediction.label]
             self.last_detection = Detection(obstacle, image, prediction, action)  # pour la vue caméra
+            self._event(f"Obstacle à {distance:.0f} m classé « {prediction.label_fr} » : {action.value}")
             state.handled, state.detected_step = True, self.step_count
             state.predicted_label, state.predicted_score = prediction.label, prediction.score
             clear = self.config.clear_steps[obstacle.true_label]
@@ -237,6 +242,8 @@ class Episode:
             except NoPathError:
                 continue
         else:
+            if self.no_path_since is None:
+                self._event("Aucun chemin libre : la voiture attend")
             self.no_path_since = self.no_path_since or self.step_count
             self.result.waiting_steps += 1
             return False
@@ -244,6 +251,8 @@ class Episode:
         self.pending_replan, self.no_path_since = False, None
         self.result.replans += 1
         self.result.u_turns += u_turn
+        self._event("Demi-tour : retour au carrefour, puis nouveau chemin" if u_turn
+                    else "Nouveau chemin calculé par Dijkstra")
         return True
 
     def _start_next_leg(self) -> bool:
@@ -271,6 +280,7 @@ class Episode:
                 self.collided.add(i)
                 self.result.collisions += 1
                 self.last_collision_step = self.step_count
+                self._event(f"Collision : « {CLASSES_FR[state.obstacle.true_label]} » mal classé")
                 if state.cleared_step is not None:   # obstacle mobile : on attend qu'il libère la voie
                     self.wait = max(self.wait, state.cleared_step - self.step_count)
                 else:                                 # obstacle immobile : on le contourne
@@ -288,12 +298,22 @@ class Episode:
             self.next_stop += 1
             self.dwell, self.leg_pending = stop.dwell_steps, True
             self.pending_replan = False                        # l'étape suivante sera calculée au départ
+            self._event(f"Arrêt prévu : {stop.name}")
         elif self.car.arrived and not self.leg_pending:
             r.status = ARRIVED
+            self._event("Arrivée à destination")
         elif self.no_path_since is not None and self.step_count - self.no_path_since >= self.config.patience_steps:
             r.status = BLOCKED
+            self._event("Bloqué : aucun chemin vers la destination")
         elif self.step_count >= self.config.max_steps:
             r.status = TIMEOUT
+            self._event("Temps dépassé")
+
+    def recent_event(self, within_steps: int = 4) -> str | None:
+        """Dernier événement s'il date de moins de ``within_steps`` pas (bandeau des vues)."""
+        if self.events and self.step_count - self.events[-1][0] <= within_steps:
+            return self.events[-1][1]
+        return None
 
 
 def save_encounters_csv(results: list[EpisodeResult], path: Path) -> Path:
