@@ -1,0 +1,340 @@
+\chapter{Étude et préparation des données}
+\label{chap:donnees}
+
+\section{Introduction}
+
+La qualité d'un modèle de Machine Learning dépend en grande partie des données sur lesquelles il est entraîné. Avant tout apprentissage, il est donc indispensable de choisir un \textbf{jeu de données adapté}, d'en comprendre la composition et de le préparer avec rigueur. Ce chapitre présente l'étude des datasets disponibles, la justification de notre choix, l'analyse quantitative et qualitative des données retenues, puis les différentes étapes de préparation : nettoyage, redimensionnement, normalisation et séparation en jeux d'entraînement, de validation et de test.
+
+\section{Étude des datasets disponibles}
+
+Plusieurs jeux de données publics ont été étudiés afin de trouver celui qui répond le mieux aux besoins du projet.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Comparaison des datasets étudiés}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{2.2cm}YY}
+  \toprule
+  \entete \textbf{Dataset} & \textbf{Classes couvertes} & \textbf{Atouts} & \textbf{Limites} \\
+  \midrule
+  \href{https://cocodataset.org/\#download}{COCO 2017} & Les 6 & Photos réelles, une boîte annotée par objet & Fort déséquilibre, nombreux petits objets, recadrages à réaliser \\
+  CIFAR-10 et CIFAR-100 & Les 6, en combinant les deux & Téléchargement simple, images déjà centrées & Images de 32~×~32~px seulement, peu de scènes routières \\
+  Pascal VOC 2012 & 5 sur 6 & Annotations soignées, taille raisonnable & Absence de la classe camion \\
+  Jeux Kaggle \og véhicules \fg{} & Variable & Prêts à l'emploi & Qualité et licences inégales, souvent sans personne ni vélo \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Comparaison et justification du dataset retenu}
+
+Le descriptif du projet laisse le choix du jeu de données à l'équipe, en demandant seulement qu'il contienne des images d'objets routiers. Pour départager les options étudiées, nous avons défini cinq critères, directement liés aux besoins du projet :
+
+\begin{itemize}
+  \item \textbf{Couverture des classes}\\
+  Le dataset doit contenir les six classes retenues, sans devoir en abandonner une.
+  \item \textbf{Réalisme des images}\\
+  Les photos doivent montrer des objets dans des situations réelles et variées, proches de ce que verrait un véhicule.
+  \item \textbf{Résolution suffisante}\\
+  Les objets doivent rester reconnaissables une fois recadrés, ce qui exclut les images trop petites.
+  \item \textbf{Annotations par objet}\\
+  Chaque objet doit être localisé par une boîte, afin de pouvoir le découper automatiquement.
+  \item \textbf{Licence et documentation}\\
+  Le dataset doit être documenté, cité dans la littérature et utilisable dans un cadre scolaire.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Comparaison des datasets selon nos critères}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.1cm}YYYY}
+  \toprule
+  \entete \textbf{Critère} & \textbf{COCO 2017} & \textbf{CIFAR-10/100} & \textbf{Pascal VOC} & \textbf{Kaggle} \\
+  \midrule
+  Couverture des 6 classes & Oui & Oui, en combinant les deux & Non (5 sur 6) & Variable \\
+  Réalisme des images & Oui, scènes réelles variées & Faible, objets isolés & Oui & Variable \\
+  Résolution & Médiane de 640~×~480~px & 32~×~32~px & Correcte & Variable \\
+  Annotations par objet & Oui, boîtes englobantes & Non, une étiquette par image & Oui & Variable \\
+  Documentation et licence & Article de référence, licences précisées & Documenté & Documenté & Inégales \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+Au regard de ces critères, nous avons retenu \textbf{COCO 2017}, sous réserve de la validation de notre encadrante. Il s'agit du seul dataset étudié qui remplit l'ensemble des critères : il couvre nos six classes avec de \textbf{vraies photos}, prises dans des conditions variées, et fournit des \textbf{annotations de référence} pour chaque objet. De plus, il n'est pas nécessaire de télécharger les 18~Go d'images, puisque seules les photos utiles sont récupérées grâce à leur adresse. CIFAR reste notre solution de secours, malgré sa résolution très faible.
+
+\subsection{Source et description du dataset retenu}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Fiche descriptive du dataset COCO 2017}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.6cm}Y}
+  \toprule
+  \entete \textbf{Élément} & \textbf{Description} \\
+  \midrule
+  Nom & COCO (\textit{Common Objects in Context}), version 2017 \\
+  Auteurs & Microsoft et plusieurs équipes universitaires, publication de référence de Lin et al. (2014) \cite{coco} \\
+  Source & Site officiel \url{https://cocodataset.org}, rubrique \textit{Download} \\
+  Contenu & 80 catégories d'objets du quotidien, dont nos six classes \\
+  Volume & 118~287 images d'entraînement (\texttt{train2017}) et 5~000 images de validation (\texttt{val2017}) \\
+  Annotations & Fichiers JSON : catégorie, boîte englobante et indicateur de foule pour chaque objet \\
+  Licences & Annotations sous licence CC~BY~4.0, images sous la licence Flickr choisie par chaque auteur \\
+  Utilisation dans le projet & \texttt{train2017} pour constituer nos jeux d'entraînement, de validation et de test, et \texttt{val2017} réservé aux tests sur de nouvelles images \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+Les licences imposent de citer COCO et de ne pas redistribuer les images. Celles-ci restent donc hors du dépôt Git, qui ne conserve que de petites vignettes dans les figures.
+
+\section{Acquisition des données à partir des annotations}
+\label{sec:acquisition}
+
+\subsection{Pourquoi récupérer les annotations plutôt que toutes les images}
+
+COCO se compose de deux parties distinctes : les \textbf{images}, d'une part, et les \textbf{annotations}, d'autre part, qui décrivent le contenu de chaque image dans un fichier texte au format JSON. Plutôt que de télécharger l'ensemble de la base, nous avons fait le choix de récupérer \textbf{uniquement les annotations}, puis de ne télécharger que les photos réellement utiles. Ce choix repose sur plusieurs raisons :
+
+\begin{itemize}
+  \item \textbf{Un volume beaucoup plus faible}\\
+  Les images de \texttt{train2017} représentent environ 18~Go, alors que l'archive des annotations ne pèse qu'environ 250~Mo. Or, notre plafond de 2~500 objets par classe (section~\ref{sec:nettoyage}) limite nos besoins à 15~000 objets, soit au plus 15~000 photos. Une même photo pouvant contenir plusieurs objets retenus, comme plusieurs voitures garées dans une rue, ces 15~000 objets proviennent en réalité de \textbf{10~672 photos} différentes : 7~982 photos apportent un seul objet, et 2~690 en apportent plusieurs. Nous n'avons donc besoin que de 10~672 photos sur 118~287, soit environ \textbf{9~\% de la base}. Ce nombre a été mesuré lors de la sélection des objets dans le notebook 02, avant tout téléchargement d'image.
+  \item \textbf{Un stockage compatible avec Google Drive}\\
+  Comme le montre le flux de développement (figure~\ref{fig:flux}), nos données sont stockées dans un dossier Google Drive partagé. L'espace gratuit d'un compte Google étant limité à 15~Go, il ne permettrait pas d'accueillir les 18~Go d'images. Nos recadrages finaux n'occupent qu'environ 64~Mo.
+  \item \textbf{Un gain de temps}\\
+  Télécharger et décompresser 18~Go sur Colab à chaque session serait long, d'autant que le disque d'une session Colab est effacé à sa fermeture.
+  \item \textbf{Une sélection possible avant tout téléchargement}\\
+  Les annotations contiennent toutes les informations nécessaires pour choisir les objets, les filtrer et répartir les photos entre les jeux, sans ouvrir une seule image.
+\end{itemize}
+
+\subsection{Comment les données sont récupérées}
+
+La récupération des données suit les étapes suivantes, réalisées dans les notebooks 01 et 02 :
+
+\begin{enumerate}
+  \item \textbf{Téléchargement des annotations}\\
+  L'archive \texttt{annotations\_trainval2017.zip} est téléchargée depuis le site officiel de COCO, puis décompressée. Le fichier \texttt{instances\_train2017.json} décrit 118~287 images, 860~001 objets et 80 catégories.
+  \item \textbf{Exploration à partir des annotations}\\
+  Les effectifs par classe, la taille des objets et le déséquilibre présentés dans ce chapitre sont calculés directement à partir de ce fichier, sans télécharger d'image.
+  \item \textbf{Sélection des objets}\\
+  Nous conservons les objets de nos six classes, en écartant les foules et les objets de moins de 32~px de côté, puis nous tirons au plus 2~500 objets par classe.
+  \item \textbf{Répartition des photos}\\
+  Les objets sont répartis entre les jeux d'entraînement, de validation et de test selon l'identifiant de leur photo, toujours à partir des annotations.
+  \item \textbf{Téléchargement ciblé}\\
+  Chaque photo sélectionnée est téléchargée une seule fois grâce à son adresse (\texttt{coco\_url}). Tous ses objets sont alors recadrés à l'aide de leur boîte, et seuls les recadrages de 64~×~64~px sont conservés. La photo complète n'est pas stockée. Sur les 10~672 photos prévues, 8 n'ont pas pu être téléchargées dans le délai imparti, ce qui explique les 14~990 recadrages obtenus au lieu de 15~000.
+  \item \textbf{Stockage sur Google Drive}\\
+  Les annotations, la liste des objets retenus, le fichier de découpage et les recadrages sont enregistrés dans le dossier Drive partagé de l'équipe. Les recadrages sont également regroupés dans une archive, décompressée sur le disque de Colab au début de l'entraînement, ce qui évite de lire des milliers de petits fichiers depuis Drive.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Volume des données stockées sur Google Drive}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{5.2cm}>{\raggedright\arraybackslash}p{3.2cm}Y}
+  \toprule
+  \entete \textbf{Élément} & \textbf{Volume} & \textbf{Rôle} \\
+  \midrule
+  Archive des annotations & Environ 250~Mo & Source de toutes les informations sur les objets \\
+  Fichier \texttt{instances\_train2017.json} & Environ 470~Mo & Annotations décompressées, lues par les notebooks \\
+  Recadrages de 64~×~64~px & 14~990 images, environ 64~Mo & Données d'entraînement, de validation et de test \\
+  Fichiers \texttt{objets\_coco.csv} et \texttt{splits.csv} & Quelques Mo & Liste des objets et découpage commun à l'équipe \\
+  Images complètes de COCO & Non stockées & Téléchargées une à une, puis supprimées après recadrage \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Exemple d'annotation}
+
+Pour illustrer ce fonctionnement, voici une annotation réelle extraite du fichier \texttt{instances\_train2017.json}. Elle décrit une voiture présente sur la photo \texttt{000000384827.jpg}. Les informations utiles sont réparties entre trois parties du fichier : la description de l'image, la description de l'objet et la catégorie.
+
+\begin{figure}[H]
+\begin{lstlisting}
+"images": [ { "id": 384827, "file_name": "000000384827.jpg", "width": 640, "height": 480,
+              "coco_url": "http://images.cocodataset.org/train2017/000000384827.jpg",
+              "license": 2, "date_captured": "2013-11-17 07:28:42" } ]
+
+"annotations": [ { "id": 1193435, "image_id": 384827, "category_id": 3,
+                   "bbox": [177.98, 287.87, 81.98, 80.9], "area": 2355.63, "iscrowd": 0,
+                   "segmentation": [[177.98, 287.87, 231.91, 291.11, ...]] } ]
+
+"categories": [ { "id": 3, "name": "car", "supercategory": "vehicle" } ]
+\end{lstlisting}
+\caption{Extrait réel du fichier d'annotations de COCO \texttt{train2017} (segmentation raccourcie)}
+\label{fig:annotation-json}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Champs de l'annotation utilisés dans le projet}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.1cm}>{\raggedright\arraybackslash}p{3.6cm}Y}
+  \toprule
+  \entete \textbf{Champ} & \textbf{Valeur de l'exemple} & \textbf{Utilisation dans le projet} \\
+  \midrule
+  \texttt{category\_id} & 3, soit \og car \fg{} & Attribue la classe \og voiture \fg{} sans étiquetage manuel \\
+  \texttt{bbox} & [177,98 ; 287,87 ; 81,98 ; 80,9] & Position (x, y) du coin supérieur gauche, largeur et hauteur de la boîte, utilisées pour le recadrage \\
+  \texttt{iscrowd} & 0 & Indique un objet isolé : l'objet est conservé \\
+  Plus petit côté de \texttt{bbox} & 80,9~px & Supérieur à 32~px : l'objet passe le filtre de taille \\
+  \texttt{image\_id} & 384827 & Rattache l'objet à sa photo, ce qui permet le découpage par photo \\
+  \texttt{coco\_url} & Adresse de la photo & Permet de télécharger uniquement cette photo \\
+  \texttt{width}, \texttt{height} & 640 et 480~px & Permettent de gérer les recadrages qui dépassent le bord de la photo \\
+  \texttt{license} & 2, soit CC~BY-NC~2.0 & Permet de connaître les conditions d'utilisation de la photo \\
+  \texttt{segmentation} & Contour détaillé de l'objet & Non utilisé : la boîte englobante suffit à notre classification \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+À partir de cette annotation, le recadrage est obtenu automatiquement : un carré de 98~px de côté, soit le plus grand côté de la boîte augmenté d'une marge de 10~\% de chaque côté, est découpé autour du centre de la voiture, puis réduit à 64~×~64~px (figure~\ref{fig:annotation-recadrage}). Il faut noter que cette même photo contient quatre voitures annotées. Grâce à leur \texttt{image\_id} commun, elles sont toutes placées dans le même jeu de données.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{exemple_annotation.jpg}
+  \caption{De l'annotation au recadrage : boîte de l'annotation 1193435 sur la photo d'origine, puis recadrage de 64~×~64~px (photo COCO 000000384827, licence CC BY-NC 2.0)}
+  \label{fig:annotation-recadrage}
+\end{figure}
+
+\subsection{Bénéfices de l'utilisation des annotations}
+
+L'utilisation des annotations présentes dans COCO apporte plusieurs bénéfices majeurs au projet :
+
+\begin{itemize}
+  \item \textbf{Aucun étiquetage manuel}\\
+  Chaque objet possède déjà sa catégorie, vérifiée par les équipes de COCO. Étiqueter et encadrer nous-mêmes 15~000 objets n'aurait pas été réalisable dans les délais du projet.
+  \item \textbf{Un découpage automatique}\\
+  Les boîtes englobantes permettent d'extraire chaque objet de sa photo sans intervention humaine.
+  \item \textbf{Un nettoyage simple et traçable}\\
+  Les champs \texttt{iscrowd} et \texttt{bbox} suffisent à écarter les foules et les objets trop petits, et chaque objet conservé reste identifié par son numéro d'annotation.
+  \item \textbf{Une évaluation fiable}\\
+  Le champ \texttt{image\_id} permet de regrouper les objets par photo et de garantir qu'aucune photo n'apparaît dans deux jeux différents.
+  \item \textbf{Une exploration rapide}\\
+  Les statistiques sur les classes et la taille des objets sont obtenues en quelques secondes, avant tout téléchargement d'image.
+  \item \textbf{Un respect des licences}\\
+  Chaque image est liée à sa licence, ce qui permet de connaître ses conditions d'utilisation.
+\end{itemize}
+
+\section{Présentation des classes}
+
+Les six classes retenues correspondent aux usagers de la route que le véhicule doit savoir reconnaître :
+
+\begin{itemize}
+  \item \textbf{Personne (\texttt{person})}\\
+  Il s'agit de l'usager le plus vulnérable. Une erreur sur cette classe est donc la plus grave pour un véhicule.
+  \item \textbf{Vélo (\texttt{bicycle})}\\
+  Usager lent et fragile, souvent accompagné d'une personne. Il faut noter que COCO annote le vélo et non le cycliste.
+  \item \textbf{Voiture (\texttt{car})}\\
+  Usager le plus fréquent, souvent à l'arrêt sur la chaussée.
+  \item \textbf{Moto (\texttt{motorcycle})}\\
+  Véhicule léger et rapide, visuellement proche du vélo.
+  \item \textbf{Bus (\texttt{bus})}\\
+  Grand véhicule qui masque une partie de la visibilité.
+  \item \textbf{Camion (\texttt{truck})}\\
+  Grand véhicule. COCO range également dans cette classe des pick-ups et des camionnettes.
+\end{itemize}
+
+L'ordre des classes (personne, vélo, voiture, moto, bus, camion) est fixé une fois pour toutes, car il correspond aux sorties du modèle et à ce qu'attend le simulateur.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.155\textwidth}\centering\includegraphics[width=\textwidth,height=2.6cm,keepaspectratio]{obj_person.jpg}\caption*{Personne}\end{subfigure}\hfill
+  \begin{subfigure}[t]{0.155\textwidth}\centering\includegraphics[width=\textwidth,height=2.6cm,keepaspectratio]{obj_velo.jpg}\caption*{Vélo}\end{subfigure}\hfill
+  \begin{subfigure}[t]{0.155\textwidth}\centering\includegraphics[width=\textwidth,height=2.6cm,keepaspectratio]{obj_voiture.jpg}\caption*{Voiture}\end{subfigure}\hfill
+  \begin{subfigure}[t]{0.155\textwidth}\centering\includegraphics[width=\textwidth,height=2.6cm,keepaspectratio]{obj_moto.jpg}\caption*{Moto}\end{subfigure}\hfill
+  \begin{subfigure}[t]{0.155\textwidth}\centering\includegraphics[width=\textwidth,height=2.6cm,keepaspectratio]{obj_bus.jpg}\caption*{Bus}\end{subfigure}\hfill
+  \begin{subfigure}[t]{0.155\textwidth}\centering\includegraphics[width=\textwidth,height=2.6cm,keepaspectratio]{obj_camion.jpg}\caption*{Camion}\end{subfigure}
+  \caption{Illustration des six classes par des modèles 3D (le modèle apprend sur des photos réelles de COCO)}
+\end{figure}
+
+\section{Analyse quantitative des données}
+
+L'ensemble \texttt{train2017} de COCO compte \textbf{118~287 images}, dont \textbf{70~082} contiennent au moins un objet de nos classes. La résolution médiane de ces images est de 640~×~480~px.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Nombre d'objets disponibles par classe dans COCO \texttt{train2017}}
+\begin{tabular}{lrr}
+  \toprule
+  \entete \textbf{Classe} & \textbf{Objets annotés} & \textbf{Hors foules, plus petit côté d'au moins 32~px} \\
+  \midrule
+  Personne & 262~465 & 150~185 \\
+  Voiture & 43~867 & 16~799 \\
+  Camion & 9~973 & 7~071 \\
+  Moto & 8~725 & 6~742 \\
+  Vélo & 7~113 & 4~505 \\
+  Bus & 6~069 & 5~194 \\
+  \bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.66\textwidth]{01_repartition_classes.png}
+  \caption{Répartition des objets par classe avant filtrage}
+\end{figure}
+
+Ces chiffres mettent en évidence un \textbf{fort déséquilibre} entre les classes : on compte 43,2 personnes pour un bus. Sans précaution, un modèle pourrait obtenir une bonne accuracy en répondant presque toujours \og personne \fg{}. C'est pourquoi nous limitons le nombre d'objets par classe et évaluons les modèles avec le F1 macro.
+
+\section{Analyse qualitative des images}
+
+L'observation d'exemples tirés au hasard a permis de relever plusieurs difficultés :
+
+\begin{itemize}
+  \item des objets \textbf{coupés} par le bord de la photo ou \textbf{cachés} par un autre objet ;
+  \item des images \textbf{floues} ou très petites, en particulier pour les voitures éloignées ;
+  \item \textbf{plusieurs objets} dans un même recadrage, comme un motard sur sa moto ;
+  \item une classe \og camion \fg{} \textbf{hétérogène}, qui contient aussi des pick-ups et des camionnettes, proches d'une voiture ;
+  \item des photos prises par des particuliers et non depuis un véhicule, ce qui constitue un biais à garder en tête pour un usage routier.
+\end{itemize}
+
+\section{Nettoyage des données}
+\label{sec:nettoyage}
+
+Afin de ne conserver que des exemples exploitables, plusieurs règles de nettoyage ont été appliquées :
+
+\begin{itemize}
+  \item \textbf{Exclusion des foules}\\
+  Une boîte marquée \texttt{iscrowd} entoure un groupe de personnes et non un seul usager.
+  \item \textbf{Exclusion des petits objets}\\
+  En dessous de 32~px de côté, l'objet devient trop flou une fois agrandi. À ce seuil, la classe la plus rare conserve 4~505 objets, contre seulement 2~693 avec un seuil de 64~px.
+  \item \textbf{Plafond de 2~500 objets par classe}\\
+  Ce plafond permet d'équilibrer les classes tout en gardant un entraînement réalisable sans GPU. Sa valeur découle de la classe la plus rare : après filtrage, le vélo ne compte que 4~505 objets utilisables. Avec 2~500 objets par classe, chaque classe atteint le même effectif tout en laissant une marge, et les objets peuvent être tirés au hasard parmi ceux disponibles.
+  \item \textbf{Contrôle des téléchargements}\\
+  Une photo inaccessible est notée sans interrompre la préparation. Sur les 15~000 objets prévus, 14~990 ont été récupérés, 8 téléchargements ayant expiré.
+\end{itemize}
+
+\section{Redimensionnement et normalisation}
+
+Chaque objet est découpé dans un \textbf{carré} centré sur sa boîte, avec une marge de 10~\%, puis réduit à \textbf{64~×~64~px}. Le recadrage carré évite de déformer les silhouettes, une personne étant haute et fine alors qu'un bus est large. Lorsque le carré dépasse les bords de la photo, les pixels manquants sont complétés par \textbf{reflet} plutôt que par une bande noire, que le modèle pourrait apprendre à tort.
+
+Chaque canal de couleur est ensuite \textbf{normalisé} à l'aide de la moyenne et de l'écart-type calculés sur le jeu d'entraînement, soit [0,4057 ; 0,3894 ; 0,3748] pour la moyenne et [0,2609 ; 0,2554 ; 0,2571] pour l'écart-type. Le simulateur applique exactement les mêmes valeurs.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.58\textwidth]{02_recadrages.jpg}
+  \caption{Recadrages de 64~×~64~px du jeu d'entraînement, une ligne par classe}
+  \label{fig:recadrages}
+\end{figure}
+
+\section{Séparation entraînement, validation et test}
+
+Les données ont été réparties en trois jeux : \textbf{70~\%} pour l'entraînement, \textbf{15~\%} pour la validation et \textbf{15~\%} pour le test.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Répartition des images par classe et par jeu}
+\begin{tabular}{lrrr}
+  \toprule
+  \entete \textbf{Classe} & \textbf{Entraînement} & \textbf{Validation} & \textbf{Test} \\
+  \midrule
+  Personne & 1~750 & 375 & 375 \\
+  Vélo & 1~748 & 373 & 375 \\
+  Voiture & 1~750 & 375 & 374 \\
+  Moto & 1~750 & 374 & 375 \\
+  Bus & 1~748 & 374 & 375 \\
+  Camion & 1~749 & 375 & 375 \\
+  \bottomrule
+\end{tabular}
+\end{table}
+
+Le découpage est \textbf{stratifié}, afin de conserver les mêmes proportions de classes dans chaque jeu. Il est également réalisé \textbf{par photo d'origine}, car deux objets d'une même photo partagent le même éclairage et le même décor. Les répartir entre l'entraînement et le test fausserait donc le score. Un contrôle automatique vérifie qu'aucune des 10~672 photos n'apparaît dans deux jeux, et le découpage est enregistré dans un fichier commun afin que toute l'équipe utilise exactement les mêmes données.
+
+\section{Conclusion}
+
+Ce chapitre a permis de justifier le choix de \textbf{COCO 2017} et de décrire précisément les données retenues. L'analyse a mis en évidence un fort déséquilibre entre les classes ainsi que plusieurs difficultés liées à la qualité des images. Les étapes de nettoyage, de recadrage, de normalisation et de découpage par photo garantissent un jeu de données équilibré et une évaluation fiable. Ces données préparées serviront de base au modèle de classification, dont l'intégration dans l'architecture globale est détaillée dans le chapitre suivant.

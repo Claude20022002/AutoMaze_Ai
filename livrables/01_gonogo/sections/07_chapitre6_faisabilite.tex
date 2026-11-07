@@ -1,0 +1,209 @@
+\chapter{Étude de faisabilité et validation Go/No-Go}
+\label{chap:faisabilite}
+
+\section{Introduction}
+
+Ce dernier chapitre a pour objectif d'évaluer la \textbf{faisabilité du projet} et de préparer la décision de Go/No-Go. Il présente successivement la faisabilité technique, matérielle et logicielle, l'identification des risques et des parades associées, ainsi que les preuves de faisabilité déjà disponibles. Il expose enfin le planning de réalisation et les critères sur lesquels repose la décision.
+
+\section{Faisabilité technique}
+
+Chaque brique technique du projet s'appuie sur des méthodes reconnues et des bibliothèques largement utilisées :
+
+\begin{itemize}
+  \item \textbf{Données}\\
+  COCO fournit des boîtes annotées pour nos six classes, ce qui permet de découper les objets automatiquement.
+  \item \textbf{Classification}\\
+  HOG, SVM, Random Forest et k-NN sont disponibles dans les bibliothèques OpenCV et scikit-learn.
+  \item \textbf{Planification}\\
+  L'algorithme de Dijkstra s'applique directement à un graphe routier, et OpenStreetMap fournit la carte de Casablanca.
+  \item \textbf{Intégration}\\
+  Le simulateur et le modèle ne communiquent que par un fichier de métadonnées et une interface commune, ce qui limite les risques d'incompatibilité.
+\end{itemize}
+
+La principale difficulté technique se situe au niveau des données : classes déséquilibrées, petits objets et étiquettes parfois discutables. Le chapitre~\ref{chap:donnees} a présenté les solutions retenues pour y répondre.
+
+\section{Faisabilité matérielle et logicielle}
+
+Aucun membre de l'équipe ne dispose d'un GPU. Les premiers essais montrent toutefois que cette contrainte n'est pas bloquante : les 21 essais de modèles classiques ont demandé \textbf{22 minutes d'entraînement} au total sur un processeur ordinaire. Google Colab reste disponible en appui, avec son GPU gratuit. Le tableau suivant présente les outils retenus.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Outils et bibliothèques retenus}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{4.4cm}Y}
+  \toprule
+  \entete \textbf{Besoin} & \textbf{Outil retenu} & \textbf{Justification} \\
+  \midrule
+  Notebooks et calcul & Jupyter, VS Code, Google Colab & Même environnement pour les trois membres, GPU gratuit si nécessaire \\
+  Partage & GitHub pour le code, Google Drive pour les données & Pas de fichiers volumineux dans Git \\
+  Données et figures & NumPy, pandas, Matplotlib, seaborn & Exploration des données et graphiques \\
+  Traitement d'images & OpenCV & Recadrage, redimensionnement et descripteurs HOG \\
+  Classifieurs & scikit-learn & SVM, Random Forest, k-NN et métriques \\
+  Extensions & XGBoost, PyTorch & Boosting et CNN entraîné de zéro, si accord \\
+  Carte & OSMnx, OpenStreetMap & Vraies rues de Casablanca \\
+  Affichage & pygame, Panda3D & Vues 2D et 3D, sans GPU dédié \\
+  Tests & pytest & Vérification du code à chaque modification \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Identification des risques}
+
+Plusieurs risques ont été identifiés, et une parade a été prévue pour chacun d'eux.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Risques identifiés et parades prévues}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{1.6cm}Y}
+  \toprule
+  \entete \textbf{Risque} & \textbf{Niveau} & \textbf{Parade} \\
+  \midrule
+  Dataset refusé par l'encadrante & Moyen & CIFAR en solution de secours, la chaîne de traitement restant identique \\
+  Scores trop faibles sur certaines classes & Élevé & Analyse des confusions et extension CNN, qui exploite la couleur \\
+  Fuite de données entre les jeux & Moyen & Découpage par photo, contrôle automatique et test ouvert une seule fois \\
+  Prétraitement différent entre notebook et simulateur & Moyen & Paramètres lus dans les métadonnées et test de concordance \\
+  Écart entre les images d'entraînement et celles du simulateur & Moyen & Caméra virtuelle fournissant de vraies photos et non des rendus 3D (section~\ref{sec:camera}) \\
+  Intégration qui prend le pas sur le Machine Learning & Moyen & Priorité donnée au modèle, le simulateur restant dans sa version actuelle si nécessaire \\
+  Manque de temps avant la soutenance & Moyen & Modèle figé le 9 décembre, une semaine avant la soutenance \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Preuves de faisabilité disponibles}
+\label{sec:preuves}
+
+Les éléments suivants démontrent que le projet est réalisable, sans pour autant signifier que l'ensemble du travail est terminé. Les scores présentés sont mesurés sur le \textbf{jeu de validation}, le jeu de test restant réservé à l'évaluation finale.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Preuves de faisabilité disponibles au 6 novembre 2026}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{4.2cm}Y}
+  \toprule
+  \entete \textbf{Preuve} & \textbf{Ce qu'elle démontre} & \textbf{État} \\
+  \midrule
+  Étude du dataset & Les données sont disponibles et adaptées & COCO étudié et licences vérifiées (chapitre~\ref{chap:donnees}) \\
+  Notebook d'exploration & Les classes et leur distribution sont connues & Effectifs, tailles et exemples mesurés \\
+  Notebook de prétraitement & Les images peuvent être préparées & 14~990 recadrages, découpage sans photo partagée \\
+  Premier classifieur & Le principe de classification fonctionne & SVM à noyau RBF : F1 macro de 0,591 en validation, contre 0,171 pour le hasard \\
+  Comparaison préliminaire & Les modèles peuvent être évalués & SVM, Random Forest, k-NN et XGBoost comparés (figure~\ref{fig:comparaison}) \\
+  Architecture globale & Les modules et leurs échanges sont définis & Chapitres~\ref{chap:analyse} et~\ref{chap:architecture} \\
+  Prototype de planification & Dijkstra trouve un chemin et en recherche un autre & Implémenté sur la carte de Casablanca et couvert par des tests automatiques \\
+  Scénario de simulation & L'intégration est techniquement plausible & Le simulateur charge un modèle et déroule les quatre scénarios (figure~\ref{fig:notre-simulateur}) \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Déroulement des comparaisons préliminaires}
+
+Les comparaisons préliminaires constituent la preuve la plus directe de la faisabilité du projet. Il est donc important de préciser avec quoi, comment et pourquoi elles ont été réalisées.
+
+\textbf{Avec quoi ?} Les comparaisons s'appuient sur les données préparées au chapitre~\ref{chap:donnees} : \textbf{10~495 images d'entraînement} et \textbf{2~246 images de validation}, réparties de manière équilibrée entre les six classes. Le jeu de test n'a pas été utilisé. Chaque image est décrite par son descripteur \textbf{HOG} de 1~764 valeurs. Les modèles proviennent des bibliothèques scikit-learn et XGBoost, et tous les calculs ont été réalisés sur un processeur ordinaire de 12 cœurs logiques, sans GPU.
+
+\textbf{Comment ?} Pour chaque famille de modèles, plusieurs réglages ont été testés. Chaque réglage a été entraîné sur le jeu d'entraînement, puis évalué sur le jeu de validation, avec les mêmes images et dans le même ordre pour tous les modèles. Pour chaque essai, nous avons relevé l'accuracy, la précision, le rappel, le F1 macro et le temps d'entraînement. Le meilleur réglage de chaque famille a ensuite été retenu selon son F1 macro, et la matrice de confusion du meilleur modèle a été analysée. Deux scores planchers servent de point de comparaison : un modèle qui répond toujours la même classe obtient un F1 macro de 0,048, et un modèle qui tire au hasard selon les fréquences obtient 0,171.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Réglages testés lors des comparaisons préliminaires (jeu de validation)}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.3cm}Yc>{\raggedright\arraybackslash}p{2.6cm}cc}
+  \toprule
+  \entete \textbf{Famille} & \textbf{Réglages testés} & \textbf{Essais} & \textbf{Meilleur réglage} & \textbf{F1 macro} & \textbf{Entraînement} \\
+  \midrule
+  SVM linéaire & C de 0,001 à 1, et une variante HOG à cellules de 4~px & 5 & C = 0,001 & 0,494 & 34~s \\
+  SVM RBF & C = 1 ou 10 & 2 & C = 10 & \textbf{0,591} & 120~s \\
+  Random Forest & 100 ou 300 arbres, profondeur libre ou limitée à 20 & 3 & 300 arbres, profondeur 20 & 0,517 & 21~s \\
+  k-NN & k = 5, 11 ou 21, et PCA à 50, 100 ou 200 dimensions & 9 & k = 11, PCA 200 & 0,470 & 1~s \\
+  XGBoost & Profondeur 4 ou 6, jusqu'à 400 arbres & 2 & Profondeur 4 & 0,571 & 245~s \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+Au total, les \textbf{21 essais} ont demandé 22 minutes d'entraînement. Il faut noter que XGBoost s'arrête lorsque son score de validation ne progresse plus, ce qui rend son résultat légèrement optimiste. De manière générale, les scores de validation servent à choisir les réglages, et seul le jeu de test, utilisé à la fin, fournira une mesure définitive.
+
+\textbf{Pourquoi ?} Ces comparaisons répondent à quatre objectifs :
+
+\begin{itemize}
+  \item \textbf{Vérifier la faisabilité}\\
+  Elles montrent que des modèles simples, entraînés sur nos données, reconnaissent les six classes bien mieux que le hasard.
+  \item \textbf{Identifier la meilleure famille}\\
+  Elles désignent le SVM à noyau RBF comme référence, que toute amélioration future devra dépasser.
+  \item \textbf{Repérer les classes difficiles}\\
+  La matrice de confusion du SVM permet d'identifier dès maintenant les confusions entre le camion, la voiture et le bus.
+  \item \textbf{Estimer le coût de calcul}\\
+  Elles confirment que l'entraînement reste réalisable sans GPU, dans des délais compatibles avec le planning.
+\end{itemize}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\textwidth]{03_comparaison_familles.png}
+  \caption{Comparaison préliminaire du meilleur réglage de chaque famille sur la validation}
+  \label{fig:comparaison}
+\end{figure}
+
+Ces premiers résultats permettent de dégager plusieurs constats :
+
+\begin{itemize}
+  \item tous les modèles dépassent nettement le hasard, représenté par la ligne rouge ;
+  \item le \textbf{SVM à noyau RBF} arrive en tête (0,591), devant XGBoost (0,571), le Random Forest (0,517) et le k-NN (0,470) ;
+  \item les principales confusions concernent le camion, souvent pris pour une voiture ou un bus, et le vélo, parfois pris pour une personne ou une moto ;
+  \item un premier \textbf{CNN entraîné de zéro} atteint 0,726 en validation, cette extension restant soumise à l'accord de notre encadrante.
+\end{itemize}
+
+\section{Planning de réalisation}
+\label{sec:planning}
+
+Le projet s'étend sur six semaines, du 4 novembre au 16 décembre 2026. Le diagramme suivant présente la répartition chronologique des tâches. Les dates des séances et du gel du modèle sont fixes, tandis que les durées des travaux restent des estimations. Si une étape prend du retard, ce sont les étapes suivantes qui sont décalées, et jamais les séances.
+
+\begin{figure}[H]
+  \centering
+  \input{figures/planning}
+  \caption{Planning prévisionnel du projet}
+  \label{fig:planning}
+\end{figure}
+
+La figure~\ref{fig:efforts} présente la répartition des efforts que nous visons. Le Machine Learning et les données en occupent la plus grande part, puisqu'ils constituent le cœur du sujet.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.58\textwidth]{repartition_indicative_des_efforts.png}
+  \caption{Répartition indicative des efforts (proposition et non mesure du temps déjà passé)}
+  \label{fig:efforts}
+\end{figure}
+
+\section{Critères de décision Go/No-Go}
+\label{sec:criteres-go}
+
+Le livrable 1 doit surtout démontrer trois éléments : l'existence d'un dataset exploitable et d'une méthodologie réaliste, la manière dont les prédictions seront exploitées par le véhicule virtuel, et la cohérence de l'architecture qui relie la classification d'un objet à une décision de conduite. Le tableau suivant fait le point sur chacun des critères.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Critères de décision Go/No-Go}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.6cm}Y>{\raggedright\arraybackslash}p{1.9cm}}
+  \toprule
+  \entete \textbf{Critère} & \textbf{Constat} & \textbf{Statut} \\
+  \midrule
+  Un dataset exploitable existe & COCO couvre les 6 classes, et les données sont préparées & Rempli \\
+  La méthodologie est réaliste & Protocole fixé, test réservé et métriques définies & Rempli \\
+  La classification fonctionne & Tous les modèles dépassent nettement le hasard & Rempli \\
+  L'usage des prédictions est défini & Règles de décision et association prédiction-objet décrites & Rempli \\
+  L'architecture est cohérente & Modules, échanges et diagrammes définis & Rempli \\
+  Les moyens sont suffisants & Outils gratuits, entraînement possible sans GPU & Rempli \\
+  Les choix sont validés par l'encadrante & Trois points restent à confirmer & À valider \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+Au regard de ces éléments, nous sollicitons une \textbf{décision de Go}. Afin d'avancer dans de bonnes conditions, nous avons toutefois besoin de l'avis de notre encadrante sur trois points :
+
+\begin{itemize}[label=$\square$]
+  \item \textbf{Jeu de données :} COCO 2017 recadré convient-il, avec CIFAR comme solution de secours ?
+  \item \textbf{Périmètre :} XGBoost, le CNN entraîné de zéro et le simulateur peuvent-ils être acceptés comme ajouts au sujet, l'évaluation restant centrée sur SVM, Random Forest et k-NN ?
+  \item \textbf{Modèle de référence :} pouvons-nous utiliser un ResNet-18 préentraîné uniquement comme point de comparaison, bien séparé de notre modèle ? En l'absence d'accord, il sera retiré sans que le reste du plan ne soit modifié.
+\end{itemize}
+
+\section{Conclusion}
+
+Ce chapitre a permis d'établir la \textbf{faisabilité du projet AutoMaze AI} sur les plans technique, matériel et logiciel. Les risques identifiés disposent tous d'une parade, et les premières preuves de faisabilité confirment que les données sont exploitables et que la classification fonctionne. Le planning retenu, qui fige le modèle une semaine avant la soutenance, laisse une marge de sécurité. Ces éléments justifient notre demande de Go, sous réserve de la validation des trois points soumis à notre encadrante.

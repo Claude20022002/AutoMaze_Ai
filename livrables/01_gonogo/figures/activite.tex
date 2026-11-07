@@ -1,0 +1,43 @@
+% Diagramme d'activité : déroulement d'un épisode de conduite dans le simulateur
+\begin{tikzpicture}[
+    node distance=0.42cm,
+    act/.style={draw=accent, fill=accent!7, rounded corners=6pt, align=center, font=\footnotesize,
+                text width=5.4cm, minimum height=0.75cm},
+    choix/.style={diamond, draw=black!60, fill=white, aspect=2.4, align=center, font=\scriptsize,
+                  inner sep=1pt, text width=2.2cm},
+    fleche/.style={-{Stealth[length=2mm]}, draw=black!65, thick}
+  ]
+  \node[circle, fill=black, minimum size=0.35cm] (debut) {};
+  \node[act, below=of debut] (route) {Calculer l'itinéraire avec Dijkstra};
+  \node[act, below=of route] (avance) {Avancer d'un pas sur l'itinéraire};
+  \node[choix, below=of avance] (arrive) {Destination atteinte ?};
+  \node[choix, below=0.5cm of arrive] (obstacle) {Obstacle à moins de 35~m ?};
+  \node[act, below=0.5cm of obstacle] (image) {Recevoir l'image de l'obstacle (caméra virtuelle)};
+  \node[act, below=of image] (classe) {Classer l'image : classe et score};
+  \node[choix, below=of classe] (seuil) {Score au-dessus du seuil ?};
+  \node[act, below=0.5cm of seuil] (decision) {Choisir l'action selon la classe prédite};
+  \node[act, below=of decision] (couts) {Mettre à jour les coûts des tronçons et recalculer le trajet};
+  \node[choix, below=of couts] (chemin) {Un chemin existe ?};
+
+  \node[act, text width=3cm, right=1.0cm of seuil] (inconnu) {« Inconnu » : arrêt prudent};
+  \node[act, text width=3.6cm, left=1.0cm of chemin] (attente) {Attendre (au plus 30 pas), puis épisode « bloqué »};
+  \node[circle, draw=black, thick, minimum size=0.45cm, right=1.3cm of arrive] (fin) {};
+  \node[circle, fill=black, minimum size=0.25cm] at (fin) {};
+
+  \draw[fleche] (debut) -- (route);
+  \draw[fleche] (route) -- (avance);
+  \draw[fleche] (avance) -- (arrive);
+  \draw[fleche] (arrive) -- node[above, font=\scriptsize] {oui} (fin);
+  \draw[fleche] (arrive) -- node[right, font=\scriptsize] {non} (obstacle);
+  \draw[fleche] (obstacle) -- node[right, font=\scriptsize] {oui} (image);
+  \draw[fleche] (obstacle.west) -- ++(-1.2,0) node[above, font=\scriptsize, pos=0.4] {non} |- (avance.west);
+  \draw[fleche] (image) -- (classe);
+  \draw[fleche] (classe) -- (seuil);
+  \draw[fleche] (seuil) -- node[right, font=\scriptsize] {oui} (decision);
+  \draw[fleche] (seuil) -- node[above, font=\scriptsize] {non} (inconnu);
+  \draw[fleche] (inconnu) |- (couts);
+  \draw[fleche] (decision) -- (couts);
+  \draw[fleche] (couts) -- (chemin);
+  \draw[fleche] (chemin.east) -- ++(5.0,0) node[above, font=\scriptsize, pos=0.25] {oui} |- (avance.east);
+  \draw[fleche] (chemin) -- node[above, font=\scriptsize] {non} (attente);
+\end{tikzpicture}

@@ -1,0 +1,367 @@
+# Architecture définitive du livrable 1 – AutoMaze AI
+
+Périmètre fonctionnel clarifié
+
+Intitulé : Classification d'objets routiers par Machine Learning pour les véhicules autonomes
+
+À partir de tes choix, nous pouvons maintenant fixer l'architecture du projet et celle du rapport Go/No-Go.
+
+Le principe fondamental est le suivant :
+
+- Le simulateur connaît les positions et les coordonnées des objets dans son environnement.
+- Le modèle de Machine Learning analyse les images fournies par la caméra et détermine la nature des objets.
+- Le système de décision combine la classe prédite et les informations de position fournies par le simulateur.
+- Le planificateur calcule le chemin vers la destination et le recalcule si un obstacle rend le trajet impraticable.
+- Le contrôleur applique les décisions au véhicule virtuel : continuer, ralentir, s'arrêter ou changer de direction.
+
+Ainsi, le simulateur sert à démontrer l'intégration du modèle dans un scénario de conduite autonome. Il ne constitue pas le sujet principal du projet.
+
+Périmètre du projet
+
+Travail ML
+
+Données, extraction, entraînement, comparaison et classification
+
+Intégration
+
+Simulation, localisation, planification et contrôle
+
+Le travail ML reste le cœur scientifique du projet ; l'intégration démontre son utilité dans un véhicule autonome virtuel.
+
+## 1. Architecture fonctionnelle globale
+
+Voici l'architecture de référence à utiliser dans le rapport.
+
+## AutoMaze AI – Architecture globale
+
+1\. Environnement de simulation
+
+Routes · Véhicule · Objets routiers · Destination
+
+Caméra virtuelle
+
+Images de l'environnement
+
+Modèle ML
+
+Classification des objets
+
+Informations du simulateur
+
+Coordonnées et positions des objets
+
+État des obstacles
+
+Position + nature identifiée
+
+2\. Fusion des informations et représentation de l'environnement
+
+Association de la classe prédite aux coordonnées de l'objet correspondant
+
+3\. Planificateur
+
+Graphe · Dijkstra · Recalcul du trajet
+
+4\. Système de décision
+
+Ralentir · Arrêter · Contourner · Continuer
+
+5\. Contrôleur du véhicule
+
+Vitesse · Freinage · Direction
+
+Déplacement autonome jusqu'à destination
+
+Point technique à préciser dans le rapport : les coordonnées fournies par le simulateur servent à associer les objets aux prédictions du modèle. Il faudra définir comment cette association est réalisée (par exemple, identifiant de l'objet ou correspondance entre la position projetée dans l'image et les coordonnées du monde virtuel). Le simulateur ne doit pas communiquer directement la classe réelle au système de décision, sinon cela contournerait le modèle ML.
+
+## 2. Délimitation précise du périmètre
+
+Pour éviter que le projet ne devienne trop vaste, je recommande de distinguer les fonctionnalités principales et les fonctionnalités d'intégration.
+
+| Module            | Responsabilité                             | Importance  |
+| ----------------- | ------------------------------------------ | ----------- |
+| Dataset           | Fournir les images des objets routiers     | Essentielle |
+| Prétraitement     | Préparer les images pour l'apprentissage   | Essentielle |
+| Classification ML | Identifier la classe d'un objet            | Essentielle |
+| Évaluation        | Comparer les classifieurs                  | Essentielle |
+| Simulateur        | Fournir un environnement de démonstration  | Intégration |
+| Localisation      | Fournir les coordonnées des objets         | Intégration |
+| Planification     | Calculer le chemin le plus court           | Intégration |
+| Décision          | Choisir le comportement face aux obstacles | Intégration |
+| Contrôle          | Commander le véhicule virtuel              | Intégration |
+
+Les fonctionnalités d'intégration sont nécessaires à la démonstration finale, mais il faut veiller à ce qu'elles ne prennent pas le dessus sur les expérimentations de Machine Learning demandées dans le sujet académique.
+
+## 3. Sommaire définitif du rapport Go/No-Go
+
+Je recommande désormais cette structure de rapport.
+
+# Structure du livrable 1
+
+Architecture académique proposée, adaptée au sujet PACTE et à la démonstration AutoMaze AI.
+
+Introduction générale
+
+- Contexte des véhicules autonomes.
+- Importance de la perception routière.
+- Problématique.
+- Objectifs du projet.
+- Démarche suivie.
+
+  Chapitre 1 – Présentation du projet et cahier des charges
+- 1.1 Présentation et contexte.
+- 1.2 Problématique.
+- 1.3 Objectif général et objectifs spécifiques.
+- 1.4 Périmètre fonctionnel.
+- 1.5 Besoins fonctionnels.
+- 1.6 Besoins non fonctionnels.
+- 1.7 Contraintes techniques et académiques.
+- 1.8 Méthodologie et planning prévisionnel.
+
+  Chapitre 2 – Analyse fonctionnelle et conception du système
+- 2.1 Identification des acteurs.
+- 2.2 Description des cas d'utilisation.
+- 2.3 Scénarios de fonctionnement.
+- 2.4 Diagramme de cas d'utilisation.
+- 2.5 Diagramme d'activité.
+- 2.6 Diagramme de séquence.
+- 2.7 Diagramme de composants.
+- 2.8 Description des interactions entre modules.
+
+  Chapitre 3 – Étude et préparation des données
+- 3.1 Étude des datasets disponibles.
+- 3.2 Comparaison et justification du dataset retenu.
+- 3.3 Présentation des classes.
+- 3.4 Analyse quantitative des données.
+- 3.5 Analyse qualitative des images.
+- 3.6 Nettoyage des données.
+- 3.7 Redimensionnement et normalisation.
+- 3.8 Séparation entraînement, validation et test.
+
+  Chapitre 4 – Architecture technique et conception des modules
+- 4.1 Architecture globale d'AutoMaze AI.
+- 4.2 Environnement de simulation.
+- 4.3 Acquisition des images par caméra virtuelle.
+- 4.4 Module de classification par Machine Learning.
+- 4.5 Module de localisation et association des objets.
+- 4.6 Représentation de l'environnement et des obstacles.
+- 4.7 Algorithme de planification Dijkstra.
+- 4.8 Système de décision.
+- 4.9 Contrôle du véhicule virtuel.
+- 4.10 Communication et intégration des modules.
+
+  Chapitre 5 – Méthodologie expérimentale et évaluation
+- 5.1 Extraction des caractéristiques.
+- 5.2 Présentation des algorithmes SVM, Random Forest et k-NN.
+- 5.3 Protocole expérimental.
+- 5.4 Métriques d'évaluation.
+- 5.5 Méthode de comparaison des modèles.
+- 5.6 Critères de sélection du modèle final.
+- 5.7 Protocole de validation dans le simulateur.
+
+  Chapitre 6 – Étude de faisabilité et validation Go/No-Go
+- 6.1 Faisabilité technique.
+- 6.2 Faisabilité matérielle et logicielle.
+- 6.3 Identification des risques.
+- 6.4 Preuves de faisabilité disponibles.
+- 6.5 Planning de réalisation.
+- 6.6 Critères de décision Go/No-Go.
+
+  Conclusion générale
+- Synthèse des choix.
+- Bilan de faisabilité.
+- Perspectives.
+
+  Bibliographie et annexes
+
+## 4. Fonctionnement détaillé des modules
+
+Voici les éléments techniques à documenter dans le rapport, sans entrer dans la réalisation complète du simulateur.
+
+### 4.1. Module de classification
+
+Le modèle reçoit une image contenant un objet routier et retourne une prédiction.
+
+Exemple de classes envisagées, à confirmer selon le dataset retenu :
+
+- Voiture
+- Piéton
+- Cycliste
+- Moto
+- Bus
+- Camion
+
+Les classifieurs à comparer sont ceux prévus dans le sujet : SVM, Random Forest et k-NN, après extraction de caractéristiques.
+
+Exemple de résultat :
+
+Résultat du classifieur
+
+[Villa Rosengarten](https://images.openai.com/static-rsc-4/5LksJI1yPVzjlw1LQ6_csraXC-6WeJYR-wbl01wX1mnjdTjpfgEjeWVbIOMM3gSSIMLlBT_eQv2dGacV5qU9pZzhVgWcJsyU6LDZXGCrWt3bLkVsyPXUQpHt_no43A0QGXewDVA3hD-A0s3ALFAfC95a1ehYknkm1IT2a8xpuhg?purpose=inline)
+
+# Voiture
+
+Score de confiance illustratif : 92 %
+
+Le score est un exemple d'affichage, pas une performance déjà mesurée.
+
+### 4.2. Module de localisation et d'association
+
+Le simulateur fournit une structure d'informations pour chaque objet présent dans l'environnement.
+
+Exemple conceptuel :
+
+| Identifiant | Coordonnées virtuelles | Classe prédite |
+| ----------- | ---------------------- | -------------- |
+| OBJ-01      | (12, 5)                | Voiture        |
+| OBJ-02      | (18, 9)                | Piéton         |
+| OBJ-03      | (22, 4)                | Camion         |
+
+L'identifiant ou la correspondance spatiale permet de rattacher la prédiction visuelle à l'objet du monde virtuel.
+
+Il faut bien séparer deux informations :
+
+- Vérité terrain du simulateur : la classe réelle et les coordonnées, disponibles pour construire et vérifier les scénarios.
+- Résultat de perception : la classe prédite par votre modèle ML.
+
+Pour la prise de décision, on utilise la classe prédite et les coordonnées, et non la classe réelle cachée du simulateur. Cela permet de vérifier réellement l'apport du modèle.
+
+### 4.3. Module de planification
+
+L'environnement est représenté sous forme de graphe :
+
+- Les nœuds représentent les positions ou intersections accessibles.
+- Les arêtes représentent les chemins possibles.
+- Les poids représentent les coûts de déplacement.
+- Les obstacles rendent certaines arêtes impraticables ou modifient leur coût, selon la stratégie retenue.
+
+L'algorithme de Dijkstra calcule un chemin de coût minimal entre le départ et la destination.
+
+Attention : le chemin le plus court n'est pas toujours le chemin le plus rapide ou le plus sûr. Pour votre démonstration, vous pouvez commencer par des distances comme coûts, puis prévoir des pénalités si certains passages sont moins favorables.
+
+### 4.4. Module de décision
+
+Le système de décision traduit les informations de perception et de planification en actions.
+
+| État de l'environnement           | Décision possible                          |
+| --------------------------------- | ------------------------------------------ |
+| Aucun obstacle sur la trajectoire | Continuer                                  |
+| Obstacle proche mais contournable | Ralentir et préparer le contournement      |
+| Obstacle bloquant                 | S'arrêter et demander un nouvel itinéraire |
+| Nouveau chemin disponible         | Changer de direction                       |
+| Aucun chemin possible             | Rester arrêté                              |
+| Voie dégagée                      | Reprendre le déplacement                   |
+
+La nature de l'objet peut influencer la règle de décision, mais elle ne suffit pas à elle seule. Il faut également prendre en compte la position, la distance, la trajectoire et la vitesse relative si elles sont disponibles.
+
+### 4.5. Module de contrôle
+
+Il reçoit les actions décidées et commande le véhicule virtuel :
+
+- Accélération.
+- Décélération.
+- Freinage.
+- Arrêt.
+- Direction gauche ou droite.
+- Reprise du déplacement.
+
+Il n'est pas nécessaire de développer un système de conduite physique réaliste dès le livrable 1. Une première logique de contrôle simplifiée suffit pour établir la faisabilité.
+
+## 5. Scénarios de démonstration à préparer
+
+Ces scénarios serviront à la fois pour concevoir les tests et pour montrer à l'encadrant ce que le système final devra accomplir.
+
+[千行自驾开发测试平台](https://images.openai.com/static-rsc-4/KdF9rB7spt842syZJv8p9pS7yiPGf0w1LoeVmksp2RbgiCWqGpQl8BhfE1iC53ww3cykuQ1AtSaHgJI_lKxi2t8CvgLLTlvUrH1nfW6jAW8imkQ7MeM3HwD4kQFU85rCj5SYpHKPgOoRabsvKVHxdtdqtGTvlXMhjxDgN3gDfDs?purpose=inline)
+
+Scénario 1 – Route libre
+
+Cas nominal
+
+Le véhicule rejoint sa destination en suivant le chemin calculé par Dijkstra.
+
+[\[Korai öröm\] Motor Town: Behind the Wheel - Early Access teszt](https://images.openai.com/static-rsc-4/JAgwDf9nn4ghitTHnVdsfKV75gN8p_x_RadCHh8oFWAFeuGBszFvG2xcClcGucPco8MbY3Kd9gq4YzKdfjwk-hm6bxu-CG6cusBEVnlSfVxHNUB9rVxETlRaW7QgIw28SrDx_6Rf6fV9ZYC37kh3zpvd2Q7tC2cSBgct0lvFpi4?purpose=inline)
+
+Scénario 2 – Présence d'un piéton\
+Le modèle classe l'objet comme piéton. Le véhicule ralentit ou s'arrête selon les conditions du scénario.
+
+[Dash - WebGL Self-Driving Car Simulator](https://images.openai.com/static-rsc-4/P_2fUaeYPqrSe2vRmRmFHvoWFJDOg22s-gYy4nz7TtiHnPF8jFdR26ogIMmQcUmXWDt8OP7gNqu0zC-HLAcheuyhcETn2DlmxlnoAsloZhuYwbuIQOVw5DiyMd5T3f8zjT8M5KQ9GfFacGOP1wQznYngY3_8OSio8AikS3h3G5o?purpose=inline)
+
+Scénario 3 – Route bloquée\
+Le véhicule s'arrête, le graphe est actualisé et Dijkstra recherche un autre chemin.
+
+[CARLA 0.9.2: Upgraded ROS-bridge, Traffic scenario engine and a new Agent class to perform driving navigation from client side! - CARLA Simulator](https://images.openai.com/static-rsc-4/-87u_JFHgOqchOaUPSUUEkvvhUYJhPcVdDPpSKCIfYMpjhmxZXA9rIPjiXNDDv2JEgWSobnK8mhyeLouPfx9aPbjPRzGo-_70D7n3RS53ONYyg3mDnKQiuIuACgTdGgtNsFPK2j51WoeszU65igbx-U8XC-kZ_gqxZOWFHMcfFU?purpose=inline)
+
+Scénario 4 – Contournement\
+Le véhicule choisit une route alternative et reprend sa progression vers la destination.
+
+## 6. Livrables et preuves attendues au Go/No-Go
+
+Je recommande de présenter les éléments suivants comme preuves de faisabilité, sans prétendre que l'intégration complète est déjà terminée.
+
+| Livrable / preuve          | Ce qu'il doit démontrer                                  |
+| -------------------------- | -------------------------------------------------------- |
+| Étude du dataset           | Les données sont disponibles et adaptées                 |
+| Notebook d'exploration     | Les classes et leur distribution sont connues            |
+| Notebook de prétraitement  | Les images peuvent être préparées                        |
+| Premier classifieur        | Le principe de classification fonctionne                 |
+| Comparaison préliminaire   | Les modèles peuvent être évalués                         |
+| Architecture globale       | Les modules sont définis et leurs échanges compris       |
+| Prototype de planification | Dijkstra trouve un chemin et peut en rechercher un autre |
+| Scénario de simulation     | Le principe d'intégration est techniquement plausible    |
+
+## 7. Exigences fonctionnelles consolidées
+
+Pour que le rapport et le développement restent alignés, voici une liste de référence.
+
+| ID   | Exigence                                                |
+| ---- | ------------------------------------------------------- |
+| EF01 | Charger et explorer le dataset routier                  |
+| EF02 | Prétraiter les images                                   |
+| EF03 | Extraire les caractéristiques visuelles                 |
+| EF04 | Entraîner plusieurs modèles de classification           |
+| EF05 | Évaluer et comparer les modèles                         |
+| EF06 | Prédire la classe d'un nouvel objet                     |
+| EF07 | Récupérer les coordonnées des objets dans le simulateur |
+| EF08 | Associer les prédictions aux objets virtuels            |
+| EF09 | Représenter les obstacles dans l'environnement          |
+| EF10 | Calculer le chemin vers la destination avec Dijkstra    |
+| EF11 | Adapter le trajet en présence d'un obstacle             |
+| EF12 | Décider de ralentir, s'arrêter ou contourner            |
+| EF13 | Commander le véhicule virtuel                           |
+| EF14 | Afficher les prédictions et les décisions du véhicule   |
+
+## 8. Points techniques à verrouiller dans le rapport
+
+Il reste quatre décisions méthodologiques à expliciter pour éviter les ambiguïtés pendant la réalisation.
+
+1\. Classification et localisation : le classifieur reçoit une image d'objet isolé ou une région d'image déjà identifiée. Le simulateur fournit les coordonnées et permet d'associer la prédiction à l'objet correspondant. Il ne faut pas présenter le classifieur comme un détecteur d'objets.
+
+2\. Données d'entraînement : les images utilisées pour entraîner le modèle doivent être compatibles avec les objets et les classes rencontrés dans le simulateur. Il faudra vérifier les différences de rendu entre les images du dataset et les images virtuelles.
+
+3\. Décision et sécurité : un objet classé comme piéton ne doit pas automatiquement provoquer la même décision dans toutes les situations. La distance, la position par rapport à la trajectoire et les règles de sécurité doivent également intervenir.
+
+4\. Dijkstra et comportement : Dijkstra détermine le chemin optimal dans le graphe. Le système de décision et le contrôleur déterminent comment le véhicule se comporte pour suivre ce chemin.
+
+## 9. Répartition conseillée des efforts
+
+Pour garder le projet centré sur son sujet académique, je recommande cette répartition indicative :
+
+Répartition indicative des efforts
+
+Proposition de répartition du travail, et non mesure du temps déjà réalisé.
+
+Intégration et simulation
+
+Machine Learning et données
+
+Planification et décision
+
+Validation et démonstration
+
+Ma recommandation finale : le livrable 1 doit surtout convaincre l'encadrant de trois choses :
+
+- Vous avez identifié un dataset exploitable et une méthodologie réaliste pour développer votre classifieur.
+- Vous savez comment les prédictions du modèle seront exploitées par le véhicule virtuel.
+- Vous avez une architecture cohérente permettant de passer de la classification d'un objet à une décision de conduite.
+
+Cette architecture devient notre référence pour la rédaction du livrable 1 d'AutoMaze AI. Elle conserve le sujet académique de classification par Machine Learning tout en intégrant la démonstration de conduite autonome prévue dans votre projet.

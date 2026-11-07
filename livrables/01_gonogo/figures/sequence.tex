@@ -1,0 +1,30 @@
+% Diagramme de séquence : traitement d'un obstacle détecté par le véhicule
+\begin{tikzpicture}[
+    tete/.style={draw=accent, fill=accent!7, rounded corners=2pt, font=\footnotesize, align=center,
+                 minimum width=2.15cm, minimum height=0.8cm},
+    msg/.style={-{Stealth[length=2mm]}, draw=black!75},
+    retour/.style={-{Stealth[length=2mm]}, draw=black!60, dashed},
+    texte/.style={font=\scriptsize, above, align=center, fill=white, inner sep=1pt}
+  ]
+  % Lignes de vie : nom, abscisse
+  \foreach \nom/\x/\titre in {moteur/0/Moteur\\de simulation, camera/2.6/Caméra\\virtuelle, modele/5.2/Classifieur\\(modèle ML),
+                              decision/7.8/Système\\de décision, plan/10.4/Planificateur\\(Dijkstra), vehicule/13/Contrôleur\\du véhicule} {
+    \node[tete] (\nom) at (\x,0) {\titre};
+    \draw[black!40, dashed] (\x,-0.45) -- (\x,-9.4);
+  }
+
+  \draw[msg] (0,-1.2) -- node[texte] {image(obstacle)} (2.6,-1.2);
+  \draw[retour] (2.6,-1.8) -- node[texte] {image RGB} (0,-1.8);
+  \draw[msg] (0,-2.6) -- node[texte, pos=0.5] {predict(image)} (5.2,-2.6);
+  \draw[retour] (5.2,-3.3) -- node[texte, pos=0.5] {classe, score, 6 probabilités} (0,-3.3);
+  \draw[msg] (0,-4.1) -- node[texte, pos=0.62] {classe prédite + position de l'obstacle} (7.8,-4.1);
+  \draw[msg] (7.8,-4.9) -- node[texte] {bloquer ou pénaliser\\le tronçon} (10.4,-4.9);
+  \draw[msg] (10.4,-5.9) -- ++(0.55,0) -- ++(0,-0.45) -- ++(-0.55,0);
+  \node[font=\scriptsize, anchor=west, align=left] at (11.05,-6.1) {recalcul\\du trajet};
+  \draw[retour] (10.4,-6.9) -- node[texte] {nouvel itinéraire} (7.8,-6.9);
+  \draw[msg] (7.8,-7.7) -- node[texte, pos=0.5] {action : arrêter, ralentir, contourner} (13,-7.7);
+  \draw[retour] (13,-8.6) -- node[texte, pos=0.5] {nouvelle position du véhicule} (0,-8.6);
+
+  % Activation du classifieur
+  \fill[accent!25] (5.1,-2.6) rectangle (5.3,-3.3);
+\end{tikzpicture}

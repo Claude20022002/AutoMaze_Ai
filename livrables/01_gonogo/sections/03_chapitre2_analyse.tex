@@ -1,0 +1,128 @@
+\chapter{Analyse fonctionnelle et conception du système}
+\label{chap:analyse}
+
+\section{Introduction}
+
+Après avoir défini les objectifs, le périmètre et les contraintes du projet dans le cahier des charges, cette deuxième étape vise à analyser le \textbf{fonctionnement attendu du système} afin de poser les bases de sa conception. L'analyse fonctionnelle assure la cohérence entre les attentes du sujet et la structure technique de la solution. Dans un premier temps, nous décrirons les cas d'utilisation, puis les scénarios de démonstration. Nous formaliserons ensuite le comportement du système à travers les diagrammes \textbf{UML} d'activité, de séquence et de composants.
+
+\section{Description des cas d'utilisation}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Description des cas d'utilisation}
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}p{2.4cm}Y}
+  \toprule
+  \entete \textbf{ID} & \textbf{Cas d'utilisation} & \textbf{Acteur} & \textbf{Résultat attendu} \\
+  \midrule
+  UC1 & Préparer les données & Équipe & Recadrages filtrés, normalisés et découpés en entraînement, validation et test \\
+  UC2 & Entraîner et comparer les classifieurs & Équipe & Tableau comparatif de SVM, Random Forest et k-NN sur la validation \\
+  UC3 & Évaluer le modèle final & Équipe, encadrante & Scores sur le test, matrice de confusion et analyse des erreurs \\
+  UC4 & Classer une nouvelle image & Utilisateur & \og photo.jpg \textrightarrow{} Voiture (92~\%) \fg{} \\
+  UC5 & Lancer une démonstration de conduite & Utilisateur, jury & Le véhicule rejoint sa destination en réagissant aux obstacles \\
+  UC6 & Comparer les classifieurs dans le simulateur & Équipe & Collisions, fautes graves et décisions inadaptées sur plusieurs épisodes \\
+  UC7 & Consulter les résultats et le rapport & Encadrante, jury & Notebooks commentés, figures et rapport \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Scénarios de fonctionnement}
+\label{sec:scenarios}
+
+Ces scénarios serviront à la fois à concevoir les tests et à montrer ce que le système final devra accomplir. Les illustrations de la figure~\ref{fig:scenarios} proviennent d'autres simulateurs et servent uniquement d'inspiration. Une capture de notre propre simulateur est présentée à la section~\ref{sec:environnement}.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth,height=4.2cm,keepaspectratio]{scenario1route_libre.jpg}
+    \caption{Scénario 1 : route libre}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth,height=4.2cm,keepaspectratio]{scenario2_presence_pieton.jpg}
+    \caption{Scénario 2 : présence d'un piéton}
+  \end{subfigure}
+
+  \vspace{0.6em}
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth,height=4.6cm,keepaspectratio]{scenario3route_bloquee.jpg}
+    \caption{Scénario 3 : route bloquée}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth,height=4.6cm,keepaspectratio]{scenario4contournement.jpg}
+    \caption{Scénario 4 : contournement}
+  \end{subfigure}
+  \caption{Scénarios de démonstration (illustrations externes)}
+  \label{fig:scenarios}
+\end{figure}
+
+\begin{itemize}
+  \item \textbf{Scénario 1 : route libre (cas nominal)}\\
+  Aucun obstacle ne se trouve sur l'itinéraire. Le véhicule suit le chemin calculé par Dijkstra jusqu'à sa destination.
+  \item \textbf{Scénario 2 : présence d'un piéton}\\
+  Un objet classé \og personne \fg{} se trouve sur l'itinéraire, à moins de 35~m. Le véhicule s'arrête, attend que la personne traverse, puis repart sur le même trajet.
+  \item \textbf{Scénario 3 : route bloquée}\\
+  Un objet classé \og voiture \fg{}, \og bus \fg{} ou \og camion \fg{} occupe le tronçon. Celui-ci est marqué comme bloqué dans le graphe, et Dijkstra recherche un autre chemin.
+  \item \textbf{Scénario 4 : contournement}\\
+  Un nouveau chemin existe. Le véhicule change de rue, ou fait demi-tour si nécessaire, puis reprend sa progression vers la destination.
+\end{itemize}
+
+Deux cas particuliers sont également prévus. Si le score de confiance est trop faible, la classe devient \og Inconnu \fg{} et le véhicule effectue un arrêt prudent. S'il n'existe plus aucun chemin, le véhicule reste arrêté, et l'épisode est déclaré \og bloqué \fg{} au bout de 30 pas.
+
+\section{Diagramme d'activité}
+
+Le diagramme d'activité décrit le déroulement d'un \textbf{épisode de conduite}, depuis le calcul de l'itinéraire jusqu'à l'arrivée. À chaque pas, le véhicule avance puis vérifie s'il a atteint sa destination. Lorsqu'un obstacle se trouve à moins de 35~m, son image est transmise au modèle, et la classe prédite détermine l'action à appliquer. Les coûts des tronçons sont alors mis à jour, et le trajet est recalculé. Ce diagramme met en évidence la coordination entre la perception, la décision et la planification.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{0.95\textwidth}{!}{\input{figures/activite}}
+  \caption{Diagramme d'activité d'un épisode de conduite}
+\end{figure}
+
+\section{Diagramme de séquence}
+
+Le diagramme de séquence décrit les échanges entre les modules lorsque le véhicule rencontre un obstacle. Le moteur de simulation demande l'image de l'obstacle à la caméra virtuelle, puis la transmet au classifieur, qui renvoie la classe, le score et les six probabilités. La classe prédite et la position de l'obstacle sont ensuite envoyées au système de décision, qui modifie le graphe, avant que le planificateur ne recalcule le trajet. Il est important de noter que la \textbf{vraie classe de l'objet n'apparaît dans aucun message} : le système de décision ne reçoit que la classe prédite.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{\input{figures/sequence}}
+  \caption{Diagramme de séquence du traitement d'un obstacle}
+\end{figure}
+
+\section{Diagramme de composants}
+
+Le diagramme de composants présente l'organisation logicielle du projet. La chaîne de Machine Learning, réalisée dans les notebooks, produit les poids du modèle et le fichier \texttt{metadata.json}. Le simulateur charge ces fichiers à travers son module de perception, et les différents modules communiquent grâce aux contrats partagés définis dans \texttt{contracts.py}.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{\input{figures/composants}}
+  \caption{Diagramme de composants}
+\end{figure}
+
+\section{Description des interactions entre modules}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Interactions entre les modules du système}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}p{2.7cm}Y}
+  \toprule
+  \entete \textbf{De} & \textbf{Vers} & \textbf{Information échangée} \\
+  \midrule
+  Notebooks & Simulateur & Poids du modèle et \texttt{metadata.json} : classes, taille d'entrée, ordre des couleurs, normalisation et seuil \\
+  Moteur & Caméra virtuelle & Obstacle rencontré, et en retour une image RGB \\
+  Moteur & Classifieur & Image RGB, et en retour une prédiction : classe, score, 6 probabilités et temps de calcul \\
+  Moteur & Décision & Classe prédite et tronçon de l'obstacle, et en retour l'action à appliquer \\
+  Décision & Planificateur & Tronçons bloqués ou pénalisés, et en retour un nouvel itinéraire \\
+  Moteur & Contrôleur & Itinéraire, attente ou ralentissement, et en retour la position du véhicule \\
+  Moteur & Interface & État de l'épisode, dernière image, prédiction et décision \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Conclusion}
+
+Ce chapitre a permis de formaliser le \textbf{fonctionnement attendu du système AutoMaze AI} à travers la description des cas d'utilisation et des scénarios de démonstration, ainsi que plusieurs diagrammes UML. Ces représentations ont contribué à clarifier les échanges entre la perception, la décision et la planification, tout en garantissant que les décisions du véhicule reposent uniquement sur les prédictions du modèle. Elles constituent une base solide pour le chapitre suivant, consacré à l'étude et à la préparation des données.

@@ -1,0 +1,47 @@
+% Diagramme de composants : modules logiciels et fichiers qui les relient
+\begin{tikzpicture}[
+    comp/.style={draw=black!60, fill=white, rounded corners=2pt, align=left, font=\footnotesize,
+                 text width=3.5cm, minimum height=1.25cm, inner sep=4pt},
+    fichier/.style={draw=accent, fill=accent!7, align=center, font=\scriptsize, text width=2.6cm,
+                    minimum height=0.8cm},
+    zone/.style={draw=black!40, fill=black!3, rounded corners=4pt},
+    lien/.style={-{Stealth[length=2mm]}, draw=black!65, thick}
+  ]
+  % Icône de composant UML (deux petits rectangles)
+  \newcommand{\icone}[1]{
+    \draw[black!55] ($(#1.north east)+(-0.45,-0.12)$) rectangle ++(0.3,-0.36);
+    \draw[black!55, fill=white] ($(#1.north east)+(-0.52,-0.18)$) rectangle ++(0.14,-0.08);
+    \draw[black!55, fill=white] ($(#1.north east)+(-0.52,-0.32)$) rectangle ++(0.14,-0.08);
+  }
+
+  \draw[zone] (-0.3,0.9) rectangle (4.4,-5.5);
+  \node[anchor=north west, font=\small\bfseries] at (-0.2,0.85) {Chaîne ML (notebooks)};
+  \draw[zone] (7.6,0.9) rectangle (16.3,-5.5);
+  \node[anchor=north west, font=\small\bfseries] at (7.7,0.85) {Simulateur (\texttt{simulator/})};
+
+  \node[comp] (donnees) at (2.05,-0.6) {\textbf{Données}\\Notebooks 01 et 02};
+  \node[comp] (modeles) at (2.05,-2.35) {\textbf{Modèles}\\Notebook 03 (et 04)};
+  \node[comp] (eval) at (2.05,-4.1) {\textbf{Évaluation}\\Notebook 05};
+
+  \node[fichier] (meta) at (6,-2.35) {\texttt{models/}\\poids et \texttt{metadata.json}};
+  \node[fichier] (contrat) at (12,-4.85) {\texttt{contracts.py}\\Prediction, Obstacle, Action};
+
+  \node[comp] (perception) at (9.8,-0.6) {\textbf{Perception}\\Classifieurs, seuil, caméra virtuelle};
+  \node[comp] (monde) at (14.2,-0.6) {\textbf{Monde}\\Carte OSM, obstacles, Dijkstra, décisions};
+  \node[comp] (moteur) at (9.8,-2.6) {\textbf{Moteur}\\\texttt{engine.py} : épisodes};
+  \node[comp] (interface) at (14.2,-2.6) {\textbf{Interface}\\Vues 2D et 3D, HUD};
+
+  \foreach \c in {donnees,modeles,eval,perception,monde,moteur,interface} \icone{\c};
+
+  \draw[lien] (donnees) -- (modeles);
+  \draw[lien] (modeles) -- (eval);
+  \draw[lien] (modeles.east) -- (meta.west);
+  \draw[lien] (meta.north) |- (perception.west);
+  \draw[lien] (moteur) -- (perception);
+  \draw[lien] (moteur.north east) -- (monde.south west);
+  \draw[lien] (interface) -- (moteur);
+  % Perception et Monde dépendent de contracts.py : liens par le couloir central, sans traverser les autres modules
+  \draw[black!65, thick, dashed] (perception.east) -- (monde.west);
+  \fill[black!65] (12,-0.6) circle (1.6pt);
+  \draw[lien, dashed] (12,-0.6) -- (contrat.north);
+\end{tikzpicture}
